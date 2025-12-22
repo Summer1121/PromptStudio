@@ -5,12 +5,15 @@ import {
   Pencil, Copy as CopyIcon, Download, Trash2, ArrowUpDown, Home
 } from 'lucide-react';
 import { PremiumButton } from './PremiumButton';
+import { getLocalized } from '../utils/helpers';
 
 /**
  * TemplatesSidebar 组件 - 负责展示左侧模版列表
  */
 export const TemplatesSidebar = React.memo(({ 
   mobileTab, 
+  isTemplatesDrawerOpen,
+  setIsTemplatesDrawerOpen,
   setDiscoveryView,
   activeTemplateId,
   setActiveTemplateId, 
@@ -37,28 +40,38 @@ export const TemplatesSidebar = React.memo(({
   handleExportTemplate,
   handleDeleteTemplate,
   handleAddTemplate,
-  handleUpdateTemplateTags,
-  editingTemplateTags,
-  setEditingTemplateTags,
-  INITIAL_TEMPLATES_CONFIG,
-  TAG_STYLES
+  INITIAL_TEMPLATES_CONFIG
 }) => {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   return (
-    <div 
-      className={`
-      ${mobileTab === 'templates' ? 'flex fixed inset-0 z-50 md:static pb-16 bg-gradient-to-br from-[#F3F4F6] to-[#E5E7EB]' : 'hidden'} 
-      md:flex flex-col flex-shrink-0 h-full
-      w-full md:w-[380px] bg-white border-r border-gray-200 shadow-xl
-      md:rounded-3xl overflow-hidden relative
-    `}
-    >
-      {/* --- Sidebar Header with Tools --- */}
+    <>
+      {/* Mobile Overlay */}
+      {isMobile && isTemplatesDrawerOpen && (
+        <div 
+          className="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[290] animate-in fade-in duration-300"
+          onClick={() => setIsTemplatesDrawerOpen(false)}
+        />
+      )}
+
+      <div 
+        className={`
+        ${isMobile 
+          ? `fixed inset-y-0 left-0 z-[300] w-[75%] max-w-[320px] transform transition-transform duration-500 ease-out shadow-2xl ${isTemplatesDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`
+          : 'relative md:flex flex-col flex-shrink-0 h-full w-[380px] border-r border-gray-200'
+        } 
+        flex bg-white overflow-hidden
+        ${!isMobile && mobileTab !== 'editor' && mobileTab !== 'banks' ? 'hidden md:flex' : ''}
+      `}
+      >
+        <div className="flex flex-col w-full h-full">
+          {/* --- Sidebar Header with Tools --- */}
       <div className="flex-shrink-0 p-5 border-b border-gray-200 bg-white">
          <div className="flex items-center justify-between mb-3">
              <div className="flex flex-row items-baseline gap-2">
                   <h1 className="font-bold tracking-tight text-sm text-orange-500">
                       提示词填空器
-                      <span className="text-gray-400 text-xs font-normal ml-1">V0.5.0</span>
+                      <span className="text-gray-400 text-xs font-normal ml-1">V0.5.1</span>
                   </h1>
              </div>
              
@@ -67,7 +80,7 @@ export const TemplatesSidebar = React.memo(({
                   <button 
                     onClick={() => setDiscoveryView(true)} 
                     className="p-1.5 rounded-lg transition-all text-orange-500 bg-orange-50/50 hover:text-orange-600 hover:bg-orange-100 shadow-sm" 
-                    title="回到发现页"
+                    title={t('back_to_discovery')}
                   >
                     <Home size={18} />
                   </button>
@@ -79,18 +92,18 @@ export const TemplatesSidebar = React.memo(({
                     <button 
                       onClick={() => setIsSortMenuOpen(!isSortMenuOpen)} 
                       className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" 
-                      title="排序"
+                      title={t('sort')}
                     >
                       <ArrowUpDown size={16} />
                     </button>
                     {isSortMenuOpen && (
                       <div className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[140px] z-[100]">
                         {[
-                          { value: 'newest', label: '最新优先' },
-                          { value: 'oldest', label: '最旧优先' },
-                          { value: 'a-z', label: 'A-Z' },
-                          { value: 'z-a', label: 'Z-A' },
-                          { value: 'random', label: '🎲 随机排序' }
+                          { value: 'newest', label: t('sort_newest') },
+                          { value: 'oldest', label: t('sort_oldest') },
+                          { value: 'a-z', label: t('sort_az') },
+                          { value: 'z-a', label: t('sort_za') },
+                          { value: 'random', label: t('sort_random') }
                         ].map(option => (
                           <button
                             key={option.value}
@@ -129,7 +142,14 @@ export const TemplatesSidebar = React.memo(({
       <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
           <div className="grid grid-cols-1 gap-2.5">
               {filteredTemplates.map(t_item => (
-                  <div key={t_item.id} onClick={() => setActiveTemplateId(t_item.id)} className={`group flex flex-col p-4 rounded-2xl border transition-all duration-300 relative text-left cursor-pointer ${t_item.id === activeTemplateId ? 'bg-orange-50 border-orange-200 shadow-sm' : 'bg-white border-transparent hover:border-orange-100 hover:bg-orange-50/30'}`}>
+                  <div 
+                      key={t_item.id} 
+                      onClick={() => {
+                          setActiveTemplateId(t_item.id);
+                          if (isMobile) setIsTemplatesDrawerOpen(false);
+                      }} 
+                      className={`group flex flex-col p-4 rounded-2xl border transition-all duration-300 relative text-left cursor-pointer ${t_item.id === activeTemplateId ? 'bg-orange-50 border-orange-200 shadow-sm' : 'bg-white border-transparent hover:border-orange-100 hover:bg-orange-50/30'}`}
+                  >
                       <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2.5 overflow-hidden flex-1">
                               {activeTemplateId === t_item.id && (
@@ -138,7 +158,7 @@ export const TemplatesSidebar = React.memo(({
                                       <div className="absolute inset-0 w-1.5 h-5 bg-orange-50 rounded-full animate-pulse"></div>
                                   </div>
                               )}
-                              <span className={`truncate text-sm transition-all ${activeTemplateId === t_item.id ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>{t_item.name}</span>
+                              <span className={`truncate text-sm transition-all ${activeTemplateId === t_item.id ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>{getLocalized(t_item.name, language)}</span>
                           </div>
                           <div className={`flex items-center gap-1.5 ${activeTemplateId === t_item.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-all duration-300`}>
                               {INITIAL_TEMPLATES_CONFIG.some(cfg => cfg.id === t_item.id) && (
@@ -180,79 +200,6 @@ export const TemplatesSidebar = React.memo(({
                               </button>
                           </div>
                       </div>
-
-                      {/* Template Tags */}
-                      {editingTemplateTags?.id === t_item.id ? (
-                          <div className="mt-2 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
-                              {TEMPLATE_TAGS.map(tag => (
-                                  <button
-                                      key={tag}
-                                      onClick={(e) => {
-                                          e.stopPropagation();
-                                          const currentTags = editingTemplateTags.tags || [];
-                                          const newTags = currentTags.includes(tag)
-                                              ? currentTags.filter(t => t !== tag)
-                                              : [...currentTags, tag];
-                                          setEditingTemplateTags({ id: t_item.id, tags: newTags });
-                                      }}
-                                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
-                                          (editingTemplateTags.tags || []).includes(tag)
-                                              ? 'bg-gray-800 text-white border-gray-800'
-                                              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                                      }`}
-                                  >
-                                      {displayTag(tag)}
-                                  </button>
-                              ))}
-                              <button
-                                  onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUpdateTemplateTags(t_item.id, editingTemplateTags.tags);
-                                      setEditingTemplateTags(null);
-                                  }}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500 text-white hover:bg-green-600 border border-green-500"
-                              >
-                                  ✓ {t('confirm')}
-                              </button>
-                          </div>
-                      ) : (
-                          activeTemplateId === t_item.id && (
-                              <div className="mt-2 flex flex-wrap gap-1.5 items-center">
-                                  {(t_item.tags || []).length > 0 ? (
-                                      <>
-                                          {t_item.tags.map(tag => (
-                                              <span
-                                                  key={tag}
-                                                  className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${TAG_STYLES[tag] || TAG_STYLES["default"]}`}
-                                              >
-                                                  {displayTag(tag)}
-                                              </span>
-                                          ))}
-                                          <button
-                                              onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setEditingTemplateTags({ id: t_item.id, tags: t_item.tags || [] });
-                                              }}
-                                              className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-all bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 border border-gray-100"
-                                              title={t('edit_tags')}
-                                          >
-                                              ✎
-                                          </button>
-                                      </>
-                                  ) : (
-                                      <button
-                                          onClick={(e) => {
-                                              e.stopPropagation();
-                                              setEditingTemplateTags({ id: t_item.id, tags: [] });
-                                          }}
-                                          className="px-2 py-0.5 rounded-full text-[10px] font-medium transition-all bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 border border-gray-100"
-                                      >
-                                          + {t('add_tags')}
-                                      </button>
-                                  )}
-                              </div>
-                          )
-                      )}
                   </div>
               ))}
           </div>
@@ -290,6 +237,8 @@ export const TemplatesSidebar = React.memo(({
           </div>
       </div>
     </div>
+  </div>
+  </>
   );
 });
 

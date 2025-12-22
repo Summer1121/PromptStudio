@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Variable } from './Variable';
-import { ImageIcon, ArrowUpRight, Upload, Globe, RotateCcw } from 'lucide-react';
+import { ImageIcon, ArrowUpRight, Upload, Globe, RotateCcw, Pencil, Check, X, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { getLocalized } from '../utils/helpers';
 
 /**
  * TemplatePreview 组件 - 负责渲染模版的预览内容，包括变量交互
@@ -15,14 +16,56 @@ export const TemplatePreview = React.memo(({
   handleSelect, 
   handleAddCustomAndSelect, 
   popoverRef, 
-  t,
-  displayTag,
-  TAG_STYLES,
-  setZoomedImage,
-  fileInputRef,
-  setShowImageUrlInput,
-  handleResetImage
+  t, 
+  displayTag, 
+  TAG_STYLES, 
+  setZoomedImage, 
+  fileInputRef, 
+  setShowImageUrlInput, 
+  handleResetImage, 
+  language,
+  setLanguage,
+  // 标签编辑相关
+  TEMPLATE_TAGS,
+  handleUpdateTemplateTags,
+  editingTemplateTags,
+  setEditingTemplateTags,
+  // 多图相关
+  setImageUpdateMode,
+  setCurrentImageEditIndex
 }) => {
+  const [editImageIndex, setEditImageIndex] = React.useState(0);
+
+  const allImages = React.useMemo(() => {
+    if (activeTemplate?.imageUrls && Array.isArray(activeTemplate.imageUrls) && activeTemplate.imageUrls.length > 0) {
+      return activeTemplate.imageUrls;
+    }
+    return activeTemplate?.imageUrl ? [activeTemplate.imageUrl] : [];
+  }, [activeTemplate.imageUrls, activeTemplate.imageUrl]);
+
+  const currentImageUrl = allImages[editImageIndex] || activeTemplate?.imageUrl;
+
+  // 当模板切换或图片索引切换时，同步编辑索引给父组件
+  React.useEffect(() => {
+    setCurrentImageEditIndex(editImageIndex);
+  }, [editImageIndex, setCurrentImageEditIndex]);
+
+  React.useEffect(() => {
+    setEditImageIndex(0);
+  }, [activeTemplate.id]);
+
+  const templateLangs = activeTemplate.language ? (Array.isArray(activeTemplate.language) ? activeTemplate.language : [activeTemplate.language]) : ['cn', 'en'];
+  const showLanguageToggle = templateLangs.length > 0;
+  const supportsChinese = templateLangs.includes('cn');
+  const supportsEnglish = templateLangs.includes('en');
+  
+  // 自动切换到模板支持的语言
+  React.useEffect(() => {
+    if (!templateLangs.includes(language)) {
+      // 如果当前语言不支持，切换到模板支持的第一个语言
+      setLanguage(templateLangs[0]);
+    }
+  }, [activeTemplate.id, templateLangs, language]);
 
   const parseLineWithVariables = (text, lineKeyPrefix, counters) => {
     const parts = text.split(/({{[^}]+}})/g);
@@ -52,6 +95,7 @@ export const TemplatePreview = React.memo(({
             popoverRef={popoverRef}
             categories={categories}
             t={t}
+            language={language}
           />
         );
       }
@@ -67,9 +111,10 @@ export const TemplatePreview = React.memo(({
   };
 
   const renderedContent = useMemo(() => {
-    if (!activeTemplate?.content) return null;
+    const contentToRender = getLocalized(activeTemplate?.content, language);
+    if (!contentToRender) return null;
     
-    const lines = activeTemplate.content.split('\n');
+    const lines = contentToRender.split('\n');
     const counters = {}; 
     
     return lines.map((line, lineIdx) => {
@@ -101,8 +146,8 @@ export const TemplatePreview = React.memo(({
               <span className="font-mono text-gray-400 mt-1 min-w-[20px]">{number}</span>
               <span className="flex-1">{parseLineWithVariables(text, lineIdx, counters)}</span>
             </React.Fragment>
-         );
-         return <div key={lineIdx} className={className}>{content}</div>;
+        );
+        return <div key={lineIdx} className={className}>{content}</div>;
       }
 
       if (typeof content === 'string') {
@@ -110,7 +155,7 @@ export const TemplatePreview = React.memo(({
       }
       return <Type key={lineIdx} className={className}>{content}</Type>;
     });
-  }, [activeTemplate.content, activeTemplate.selections, banks, defaults, activePopover, categories, t]);
+  }, [activeTemplate.content, activeTemplate.selections, banks, defaults, activePopover, categories, t, language]);
 
   return (
     <div className="w-full h-full relative overflow-hidden group">
@@ -132,13 +177,47 @@ export const TemplatePreview = React.memo(({
                 <div className="flex flex-col md:flex-row justify-between items-start mb-6 md:mb-10 relative">
                     {/* Left: Title & Meta Info */}
                     <div className="flex-1 min-w-0 pr-4 z-10 pt-2">
+                        {/* Language Toggle */}
+                        {showLanguageToggle && (
+                            <div className="flex items-center gap-3 mb-4 p-2 bg-gray-50 rounded-lg border border-gray-200 inline-flex">
+                                <span className="text-xs text-gray-500 font-medium">模板语言:</span>
+                                <button 
+                                    onClick={() => supportsChinese && setLanguage('cn')}
+                                    disabled={!supportsChinese}
+                                    className={`text-sm font-bold transition-all relative py-1 px-2 rounded ${
+                                        !supportsChinese 
+                                            ? 'text-gray-300 cursor-not-allowed' 
+                                            : language === 'cn' 
+                                                ? 'text-orange-600 bg-white shadow-sm' 
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'
+                                    }`}
+                                    title={!supportsChinese ? '此模板不支持中文' : ''}
+                                >
+                                    中文
+                                </button>
+                                <button 
+                                    onClick={() => supportsEnglish && setLanguage('en')}
+                                    disabled={!supportsEnglish}
+                                    className={`text-sm font-bold transition-all relative py-1 px-2 rounded ${
+                                        !supportsEnglish 
+                                            ? 'text-gray-300 cursor-not-allowed' 
+                                            : language === 'en' 
+                                                ? 'text-orange-600 bg-white shadow-sm' 
+                                                : 'text-gray-400 hover:text-gray-600 hover:bg-white/50'
+                                    }`}
+                                    title={!supportsEnglish ? 'This template does not support English' : ''}
+                                >
+                                    EN
+                                </button>
+                            </div>
+                        )}
                         <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-3 tracking-tight leading-tight">
-                            {activeTemplate.name}
+                            {getLocalized(activeTemplate.name, language)}
                         </h2>
                         {/* Tags / Meta */}
-                        <div className="flex flex-wrap gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="px-2.5 py-1 rounded-md bg-orange-50 text-orange-600 text-xs font-bold tracking-wide border border-orange-100/50">
-                                V0.5.0
+                                V0.5.1
                             </span>
                             {(activeTemplate.tags || []).map(tag => (
                                 <span 
@@ -148,29 +227,102 @@ export const TemplatePreview = React.memo(({
                                     {displayTag(tag)}
                                 </span>
                             ))}
+                            
+                            {/* Edit Tags Button */}
+                            {editingTemplateTags?.id !== activeTemplate.id && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingTemplateTags({ id: activeTemplate.id, tags: activeTemplate.tags || [] });
+                                    }}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md text-gray-400 hover:text-orange-600 hover:bg-orange-50 transition-all duration-200 group/edit-tag"
+                                    title={t('edit_tags')}
+                                >
+                                    <Pencil size={12} className="transition-transform group-hover/edit-tag:scale-110" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wider opacity-0 group-hover/edit-tag:opacity-100 transition-opacity">{t('edit_tags')}</span>
+                                </button>
+                            )}
                         </div>
+
+                        {/* Editing Tags UI */}
+                        {editingTemplateTags?.id === activeTemplate.id && (
+                            <div className="mb-6 p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-orange-100 shadow-sm flex flex-col gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center justify-between border-b border-orange-50 pb-2 mb-1">
+                                    <span className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                                        <Pencil size={12} className="text-orange-500" />
+                                        {t('edit_tags')}
+                                    </span>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleUpdateTemplateTags(activeTemplate.id, editingTemplateTags.tags);
+                                                setEditingTemplateTags(null);
+                                            }}
+                                            className="p-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-all shadow-sm hover:shadow-orange-200 flex items-center gap-1.5 px-3"
+                                        >
+                                            <Check size={14} />
+                                            <span className="text-xs font-bold">{t('confirm')}</span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingTemplateTags(null);
+                                            }}
+                                            className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition-all flex items-center gap-1.5 px-3"
+                                        >
+                                            <X size={14} />
+                                            <span className="text-xs font-bold">{t('cancel')}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {TEMPLATE_TAGS.map(tag => (
+                                        <button
+                                            key={tag}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const currentTags = editingTemplateTags.tags || [];
+                                                const newTags = currentTags.includes(tag)
+                                                    ? currentTags.filter(t => t !== tag)
+                                                    : [...currentTags, tag];
+                                                setEditingTemplateTags({ id: activeTemplate.id, tags: newTags });
+                                            }}
+                                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                                (editingTemplateTags.tags || []).includes(tag)
+                                                    ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-200 scale-105'
+                                                    : 'bg-white text-gray-500 border-gray-100 hover:border-orange-200 hover:text-orange-500'
+                                            }`}
+                                        >
+                                            {displayTag(tag)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <p className="text-gray-400 text-sm font-medium mt-2">
-                            灵感来源与贡献：{activeTemplate.author || '官方'}
+                            {t('source_and_contribution')}：{activeTemplate.author === '官方' ? t('official') : (activeTemplate.author || t('official'))}
                         </p>
                         <p className="text-gray-400 text-sm font-medium mt-1">
-                            Made by "提示词填空器"
+                            {t('made_by')}
                         </p>
                     </div>
 
                     {/* Right: Image (Overhanging) */}
                     <div 
-                        className="w-full md:w-auto mt-4 md:mt-0 relative md:-mr-[50px] md:-mt-[50px] z-20 flex-shrink-0"
+                        className="w-full md:w-auto mt-4 md:mt-0 relative md:-mr-[80px] md:-mt-[50px] z-20 flex-shrink-0"
                     >
                         <div 
                             className="bg-white p-1.5 md:p-2 rounded-lg md:rounded-xl shadow-lg md:shadow-xl transform md:rotate-2 border border-gray-100/50 transition-all duration-300 hover:rotate-0 hover:scale-105 hover:shadow-2xl group/image w-full md:w-auto"
                         >
-                            <div className={`relative overflow-hidden rounded-md md:rounded-lg bg-gray-50 flex items-center justify-center min-w-[150px] min-h-[150px] ${!activeTemplate.imageUrl ? 'w-full md:w-[300px] h-[300px]' : ''}`}>
-                                {activeTemplate.imageUrl ? (
+                            <div className={`relative overflow-hidden rounded-md md:rounded-lg bg-gray-50 flex items-center justify-center min-w-[150px] min-h-[150px] ${!currentImageUrl ? 'w-full md:w-[400px] h-[400px]' : ''}`}>
+                                {currentImageUrl ? (
                                     <img 
-                                        src={activeTemplate.imageUrl} 
+                                        key={currentImageUrl}
+                                        src={currentImageUrl} 
                                         referrerPolicy="no-referrer"
                                         alt="Template Preview" 
-                                        className="w-full md:w-auto md:max-w-[300px] md:max-h-[300px] h-auto object-contain block" 
+                                        className="w-full md:w-auto md:max-w-[400px] md:max-h-[400px] h-auto object-contain block animate-in fade-in duration-300" 
                                         onError={(e) => {
                                             e.target.style.display = 'none';
                                             e.target.parentElement.style.backgroundColor = '#f1f5f9';
@@ -201,10 +353,10 @@ export const TemplatePreview = React.memo(({
                                     </div>
                                 )}
                                 
-                                <div className={`absolute inset-0 bg-black/0 ${activeTemplate.imageUrl ? 'group-hover/image:bg-black/20' : 'group-hover/image:bg-black/5'} transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover/image:opacity-100`}>
-                                    {activeTemplate.imageUrl && (
+                                <div className={`absolute inset-0 bg-black/0 ${currentImageUrl ? 'group-hover/image:bg-black/20' : 'group-hover/image:bg-black/5'} transition-colors duration-300 flex items-center justify-center gap-2 opacity-0 group-hover/image:opacity-100`}>
+                                    {currentImageUrl && (
                                         <button 
-                                            onClick={(e) => { e.stopPropagation(); setZoomedImage(activeTemplate.imageUrl); }}
+                                            onClick={(e) => { e.stopPropagation(); setZoomedImage(currentImageUrl); }}
                                             className="p-2.5 bg-white/90 text-gray-700 rounded-full hover:bg-white hover:text-orange-600 transition-all shadow-lg"
                                             title="查看大图"
                                         >
@@ -212,16 +364,16 @@ export const TemplatePreview = React.memo(({
                                         </button>
                                     )}
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                                        onClick={(e) => { e.stopPropagation(); setImageUpdateMode('replace'); fileInputRef.current?.click(); }}
                                         className="p-2.5 bg-white/90 text-gray-700 rounded-full hover:bg-white hover:text-orange-600 transition-all shadow-lg"
-                                        title="更换图片(本地)"
+                                        title="更换当前图片(本地)"
                                     >
                                         <Upload size={18} />
                                     </button>
                                     <button 
-                                        onClick={(e) => { e.stopPropagation(); setShowImageUrlInput(true); }}
+                                        onClick={(e) => { e.stopPropagation(); setImageUpdateMode('replace'); setShowImageUrlInput(true); }}
                                         className="p-2.5 bg-white/90 text-gray-700 rounded-full hover:bg-white hover:text-orange-600 transition-all shadow-lg"
-                                        title="更换图片(URL)"
+                                        title="更换当前图片(URL)"
                                     >
                                         <Globe size={18} />
                                     </button>
@@ -233,6 +385,61 @@ export const TemplatePreview = React.memo(({
                                         <RotateCcw size={18} />
                                     </button>
                                 </div>
+
+                                {/* Navigation & Indicator for Edit Mode */}
+                                {allImages.length > 1 && (
+                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30 bg-black/20 backdrop-blur-md px-2 py-1 rounded-full border border-white/10">
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setEditImageIndex((editImageIndex - 1 + allImages.length) % allImages.length); }}
+                                            className="text-white/60 hover:text-white transition-all"
+                                        >
+                                            <ChevronLeft size={12} />
+                                        </button>
+                                        
+                                        {/* Dots Indicator */}
+                                        <div className="flex gap-1">
+                                            {allImages.map((_, idx) => (
+                                                <div 
+                                                    key={idx}
+                                                    className={`w-1 h-1 rounded-full transition-all ${idx === editImageIndex ? 'bg-orange-500 w-2' : 'bg-white/40'}`}
+                                                />
+                                            ))}
+                                        </div>
+
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setEditImageIndex((editImageIndex + 1) % allImages.length); }}
+                                            className="text-white/60 hover:text-white transition-all"
+                                        >
+                                            <ChevronRight size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {/* Add Image Button below the image box */}
+                            <div className="mt-2 flex gap-2 justify-center">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setImageUpdateMode('add');
+                                        fileInputRef.current?.click();
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded-lg text-xs font-bold transition-all border border-gray-100"
+                                >
+                                    <Plus size={14} />
+                                    本地图片
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setImageUpdateMode('add');
+                                        setShowImageUrlInput(true);
+                                    }}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded-lg text-xs font-bold transition-all border border-gray-100"
+                                >
+                                    <Globe size={14} />
+                                    网络链接
+                                </button>
                             </div>
                         </div>
                     </div>

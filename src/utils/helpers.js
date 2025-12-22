@@ -14,6 +14,13 @@ export const makeUniqueKey = (base, existingKeys, suffix = "custom") => {
   return candidate;
 };
 
+// 获取本地化文本
+export const getLocalized = (obj, language) => {
+  if (!obj) return "";
+  if (typeof obj === 'string') return obj;
+  return obj[language] || obj.cn || obj.en || "";
+};
+
 // 等待图片加载完成，避免导出时空白
 export const waitForImageLoad = (img, timeout = 6000) => {
   if (!img) return Promise.resolve();
