@@ -11,6 +11,7 @@ export const TRANSLATIONS = {
     bank_subtitle: "所有模版共享同一套词库",
     preview_mode: "预览交互",
     edit_mode: "编辑模版",
+    edit: "编辑",
     copy_result: "复制结果",
     export_image: "保存长图",
     exporting: "导出中...",
