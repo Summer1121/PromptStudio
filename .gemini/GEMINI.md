@@ -1,0 +1,1 @@
+- 每次有交互变更，都需要在[app.spec.js](../prompt_fill/tests/e2e/app.spec.js)中为更新的交互添加自动化用例

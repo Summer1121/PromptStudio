@@ -1,0 +1,41 @@
+name = "cs_accept_fix"
+description = "将当前的测试结果标记为新的“已修复”基准，并提交相关的代码更改。"
+run = """
+#!/bin/bash
+set -e
+
+RESULTS_FILE="prompt_fill/tests/e2e/output/test-results.json"
+HASH_FILE=".gemini/test_results.json.md5"
+MODIFIED_FILE="prompt_fill/src/constants/translations.js" # This needs to be dynamic
+
+# 1. 检查测试结果文件是否存在
+if [ ! -f "$RESULTS_FILE" ]; then
+    echo "错误：无法找到 $RESULTS_FILE 文件来更新哈希值。"
+    exit 1
+fi
+
+# 2. 更新哈希文件
+echo "1. 正在更新测试结果的哈希值..."
+CURRENT_HASH=$(md5 -q "$RESULTS_FILE")
+echo "$CURRENT_HASH" > "$HASH_FILE"
+echo "  - 哈希值已更新为: $CURRENT_HASH"
+
+# 3. 将更改添加到 Git
+echo "2. 正在将更改暂存到 Git..."
+git add "$MODIFIED_FILE" "$HASH_FILE"
+echo "  - 已暂存: $MODIFIED_FILE"
+echo "  - 已暂存: $HASH_FILE"
+
+# 4. 检查是否有任何暂存的更改
+if git diff --staged --quiet; then
+  echo "没有需要提交的更改。"
+else
+  # 5. 提交更改
+  echo "3. 正在提交修复..."
+  git commit -m "Fix: Apply automated fix and update test baseline"
+  echo "---"
+  echo "成功：已将当前测试结果标记为新的基准，并提交了修复。"
+fi
+"""
+
+prompt="通过shell运行cs_accept_fix.toml中的run脚本"

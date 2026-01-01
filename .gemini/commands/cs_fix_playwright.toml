@@ -1,0 +1,33 @@
+description = "运行 Playwright E2E 测试，分析失败的用例，并尝试修复代码。"
+# The 'run' key contains the shell script to be executed.
+# The result of the script will be sent to the model.
+run = """
+#!/bin/bash
+set -e
+
+echo "--- 开始执行 Playwright E2E 测试 ---"
+
+# 1. 清理旧的测试结果，以确保一个全新的运行
+echo "1. 正在清理旧的测试结果目录..."
+rm -rf prompt_fill/test-results
+rm -f prompt_fill/tests/e2e/output/test-results.json
+
+# 2. 进入 'prompt_fill' 目录并运行 E2E 测试
+echo "2. 正在 'prompt_fill' 目录下运行 'npm run test:e2e'..."
+(cd prompt_fill && npm run test:e2e)
+
+# 3. 检查测试结果文件是否存在
+RESULTS_FILE="prompt_fill/tests/e2e/output/test-results.json"
+if [ ! -f "$RESULTS_FILE" ]; then
+    echo "错误：在 $RESULTS_FILE 未找到测试结果文件。"
+    echo "npm run test:e2e 可能失败或未生成报告。"
+    exit 1
+fi
+
+# 4. 输出报告内容以供 Gemini 分析
+echo "3. 以下是 Playwright 的 JSON 测试报告，请分析其中的失败用例，并为相关文件生成修复代码："
+echo "---"
+cat "$RESULTS_FILE"
+"""
+
+prompt="以shell执行 cs_fix_playwright.toml 中定义的 run脚本，获取自动化结果，而后分析自动化结果并尝试修改代码。结束后执行 /cs_accept_fix 命令"
