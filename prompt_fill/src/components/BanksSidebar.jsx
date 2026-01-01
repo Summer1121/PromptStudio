@@ -538,7 +538,7 @@ export const BanksSidebar = React.memo(({
   setIsCategoryManagerOpen, 
   categories, 
   banks, 
-  insertVariableToTemplate, 
+  onInsert, 
   handleDeleteOption, 
   handleAddOption, 
   handleDeleteBank, 
@@ -546,6 +546,8 @@ export const BanksSidebar = React.memo(({
   handleStartAddBank, 
   t,
   language,
+  highlightedBank,
+  setHighlightedBank,
   // 移动端模拟拖拽 props
   onTouchDragStart
 }) => {
@@ -611,7 +613,7 @@ export const BanksSidebar = React.memo(({
                         catId={catId}
                         categories={categories}
                         banks={banks}
-                        onInsert={insertVariableToTemplate}
+                        onInsert={onInsert}
                         onDeleteOption={handleDeleteOption}
                         onAddOption={handleAddOption}
                         onDeleteBank={handleDeleteBank}
@@ -619,6 +621,8 @@ export const BanksSidebar = React.memo(({
                         onStartAddBank={handleStartAddBank}
                         t={t}
                         language={language}
+                        highlightedBank={highlightedBank}
+                        setHighlightedBank={setHighlightedBank}
                         onTouchDragStart={onTouchDragStart}
                     />
                 ))}
@@ -630,7 +634,7 @@ export const BanksSidebar = React.memo(({
                         catId={catId}
                         categories={categories}
                         banks={banks}
-                        onInsert={insertVariableToTemplate}
+                        onInsert={onInsert}
                         onDeleteOption={handleDeleteOption}
                         onAddOption={handleAddOption}
                         onDeleteBank={handleDeleteBank}
@@ -638,6 +642,8 @@ export const BanksSidebar = React.memo(({
                         onStartAddBank={handleStartAddBank}
                         t={t}
                         language={language}
+                        highlightedBank={highlightedBank}
+                        setHighlightedBank={setHighlightedBank}
                         onTouchDragStart={onTouchDragStart}
                     />
                 ))}
@@ -651,7 +657,7 @@ export const BanksSidebar = React.memo(({
                       catId={catId}
                       categories={categories}
                       banks={banks}
-                      onInsert={insertVariableToTemplate}
+                      onInsert={onInsert}
                       onDeleteOption={handleDeleteOption}
                       onAddOption={handleAddOption}
                       onDeleteBank={handleDeleteBank}
@@ -659,6 +665,8 @@ export const BanksSidebar = React.memo(({
                       onStartAddBank={handleStartAddBank}
                       t={t}
                       language={language}
+                      highlightedBank={highlightedBank}
+                      setHighlightedBank={setHighlightedBank}
                       onTouchDragStart={onTouchDragStart}
                   />
               ))}

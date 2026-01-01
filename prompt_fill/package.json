@@ -8,16 +8,23 @@
     "dev:open": "vite --host --open",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri:dev": "npx tauri dev",
+    "test:e2e": "playwright test --config ./tests/e2e/playwright.config.js"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/cli": "^2.9.6",
+    "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tiptap/react": "^3.14.0",
+    "@tiptap/starter-kit": "^3.14.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/typography": "^0.5.10",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
