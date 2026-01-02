@@ -28,7 +28,7 @@ test.describe('Core App Functionality', () => {
     await firstTemplate.click();
 
     // 3. Check that the EditorToolbar now shows a heading.
-    const editorToolbar = page.locator('.h-16.border-b');
+    const editorToolbar = page.locator('main').locator('.border-b');
     const heading = editorToolbar.getByRole('heading');
     await expect(heading).toBeVisible();
     const headingText = await heading.textContent();
@@ -64,7 +64,7 @@ test.describe('Core App Functionality', () => {
     await expect(textarea).not.toBeEditable();
 
     // 4. Find and click the "Edit" button within the toolbar
-    const editorToolbar = page.locator('.border-b');
+    const editorToolbar = page.locator('main').locator('.border-b');
     const editButton = editorToolbar.getByRole('button', { name: '编辑' });
     await expect(editButton).toBeVisible();
     await editButton.click();
@@ -78,7 +78,7 @@ test.describe('Core App Functionality', () => {
     await page.locator('div[class="grid grid-cols-1 gap-2.5"] > div').first().click();
 
     // 2. Click the "Edit" button
-    const editorToolbar = page.locator('.border-b');
+    const editorToolbar = page.locator('main').locator('.border-b');
     const editButton = editorToolbar.getByRole('button', { name: '编辑' });
     await editButton.click();
 

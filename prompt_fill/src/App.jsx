@@ -56,7 +56,9 @@ const App = () => {
     y: 0,
     options: [],
     bankKey: null,
+    variableIndex: null,
   });
+  const [editedPreviewContent, setEditedPreviewContent] = useState(null);
   
   const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileTab, setMobileTab] = useState(isMobileDevice ? "home" : "editor");
@@ -234,22 +236,20 @@ const App = () => {
   const handleCopy = () => {
     if (!activeTemplate) return;
 
-    // This function will need to resolve variables in the content before copying
-    const finalContent = getLocalized(activeTemplate.content, templateLanguage)
-      .replace(/\{\{([^}]+)\}\}|\{\{([^}]+)\}\}?/g, (match, key) => {
+    const parts = getLocalized(activeTemplate.content, templateLanguage).split(/(\{\{[^\}\n]+\}\})/g);
+    const finalContent = parts.map((part, i) => {
+      if (part.startsWith('{{') && part.endsWith('}}')) {
+        const key = part.slice(2, -2).trim();
         const bankKey = key.trim();
-        const selectionKey = `${activeTemplate.id}-${bankKey}`;
+        const selectionKey = `${activeTemplate.id}-${bankKey}-${i}`;
         const selectionIndex = activeTemplate.selections?.[selectionKey];
         if (selectionIndex !== undefined && banks[bankKey]) {
           return getLocalized(banks[bankKey].options[selectionIndex], language);
         }
-        // If no selection, try to use default
-        const defaultIndex = defaults[bankKey];
-        if (defaultIndex !== undefined && banks[bankKey]) {
-            return getLocalized(banks[bankKey].options[defaultIndex], language);
-        }
-        return match; // Keep placeholder if not found
-      });
+        return part; // Keep placeholder if not found
+      }
+      return part;
+    }).join('');
 
     navigator.clipboard.writeText(finalContent).then(() => {
       setCopied(true);
@@ -257,8 +257,7 @@ const App = () => {
     });
   };
 
-  const handleVariableClick = (key, event) => {
-    console.log('handleVariableClick called with key:', key);
+  const handleVariableClick = (key, event, variableIndex) => {
     const bank = banks[key];
     if (!bank || !bank.options) return;
 
@@ -269,15 +268,15 @@ const App = () => {
       y: rect.bottom,
       options: bank.options.map(opt => getLocalized(opt, language)),
       bankKey: key,
+      variableIndex: variableIndex,
     });
   };
 
   const handleVariableSelect = (selectedIndex) => {
-    console.log('handleVariableSelect called with index:', selectedIndex);
     if (!activeTemplate || !variablePickerState.bankKey) return;
 
-    const { bankKey } = variablePickerState;
-    const selectionKey = `${activeTemplate.id}-${bankKey}`;
+    const { bankKey, variableIndex } = variablePickerState;
+    const selectionKey = `${activeTemplate.id}-${bankKey}-${variableIndex}`;
     
     const newSelections = {
       ...activeTemplate.selections,
@@ -287,6 +286,65 @@ const App = () => {
     handleUpdateTemplate(activeTemplate.id, { selections: newSelections });
 
     setVariablePickerState({ ...variablePickerState, visible: false });
+  };
+
+  const handleSaveAsNew = () => {
+    if (!editedPreviewContent) return;
+
+    // This is a brittle and inefficient way to convert the rendered content back to a template.
+    // It might fail in many cases. A better solution would be to use a proper rich text editor
+    // that can handle variables as custom nodes.
+    let newContent = editedPreviewContent;
+    const valueToPlaceholderMap = {};
+    Object.entries(banks).forEach(([bankKey, bank]) => {
+      bank.options.forEach((option, index) => {
+        const value = getLocalized(option, language);
+        // This will have issues if multiple variables have the same value.
+        valueToPlaceholderMap[value] = `{{${bankKey}}}`;
+      });
+    });
+
+    Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
+      newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
+    });
+
+    const newId = `tpl_${Date.now()}`;
+    const newTemplate = {
+      id: newId,
+      name: `${getLocalized(activeTemplate.name, language)} (Edited)`,
+      author: "Me",
+      content: newContent,
+      selections: {},
+      tags: activeTemplate.tags,
+      createdAt: new Date().toISOString(),
+    };
+    setTemplates(prev => [newTemplate, ...prev]);
+    setActiveTemplateId(newId);
+    setEditedPreviewContent(null);
+  };
+
+  const handleOverwrite = () => {
+    if (!editedPreviewContent) return;
+
+    // This is a brittle and inefficient way to convert the rendered content back to a template.
+    // It might fail in many cases. A better solution would be to use a proper rich text editor
+    // that can handle variables as custom nodes.
+    let newContent = editedPreviewContent;
+    const valueToPlaceholderMap = {};
+    Object.entries(banks).forEach(([bankKey, bank]) => {
+      bank.options.forEach((option, index) => {
+        const value = getLocalized(option, language);
+        // This will have issues if multiple variables have the same value.
+        valueToPlaceholderMap[value] = `{{${bankKey}}}`;
+      });
+    });
+
+    Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
+      newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
+    });
+
+    handleUpdateTemplate(activeTemplate.id, { content: newContent });
+    setEditedPreviewContent(null);
   };
   
   if (!dataLoaded) {
@@ -352,9 +410,19 @@ const App = () => {
                  onCopy={handleCopy}
                  copied={copied}
                  isEditing={isEditing}
-                 setIsEditing={setIsEditing}
+                 setIsEditing={
+                  (editing) => {
+                    setIsEditing(editing);
+                    if (!editing) {
+                      setEditedPreviewContent(getLocalized(activeTemplate.content, templateLanguage));
+                    }
+                  }
+                 }
                  t={t}
                  language={language}
+                 editedPreviewContent={editedPreviewContent}
+                 onOverwrite={handleOverwrite}
+                 onSaveAsNew={handleSaveAsNew}
                />
                <VisualEditor
                  ref={textareaRef}
@@ -373,6 +441,7 @@ const App = () => {
                  activeTemplate={activeTemplate}
                  defaults={defaults}
                  language={language}
+                 onUpdate={setEditedPreviewContent}
                />
              </>
            ) : (

@@ -38,6 +38,7 @@ export const TRANSLATIONS = {
     alert_id_exists: "该 ID 已存在！",
     alert_keep_one: "至少需要保留一个模版",
     confirm_delete_template: "确定要删除这个模版吗？操作无法撤销。",
+    done: "完成",
     confirm_delete_bank: "确定要删除\"{{name}}\"整个词库吗？",
     new_template_name: "新模版",
     new_template_content: "### 新模版\n\n开始编辑你的内容，使用 {{variable}} 插入变量。",
@@ -124,6 +125,8 @@ export const TRANSLATIONS = {
     what_is_new: "更新日志",
     backup_data: "备份数据",
     connect_author: "联系与关于",
+    overwrite_template: "覆盖模板",
+    save_as_new_template: "另存为新模板",
   },
   en: {
     template_management: "Templates",
@@ -162,6 +165,7 @@ export const TRANSLATIONS = {
     alert_id_exists: "ID already exists!",
     alert_keep_one: "Keep at least one template",
     confirm_delete_template: "Delete this template? Cannot be undone.",
+    done: "Done",
     confirm_delete_bank: "Delete the entire bank \"{{name}}\"?",
     new_template_name: "New Template",
     new_template_content: "### New Template\n\nStart editing content. Use {{variable}} to insert variables.",
@@ -248,5 +252,7 @@ export const TRANSLATIONS = {
     what_is_new: "What's New",
     backup_data: "Backup Data",
     connect_author: "Connect & About",
+    overwrite_template: "Overwrite Template",
+    save_as_new_template: "Save as New Template",
   },
 };
