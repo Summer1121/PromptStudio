@@ -8,7 +8,7 @@ set -e
 echo "--- 开始执行 Playwright E2E 测试 ---"
 
 # 1. 检查测试结果文件是否存在
-RESULTS_FILE="prompt_fill/tests/e2e/output/test-results.json"
+RESULTS_FILE="prompt_fill/tests/e2e/output/test-results.json
 if [ ! -f "$RESULTS_FILE" ]; then
     echo "错误：在 $RESULTS_FILE 未找到测试结果文件。"
     echo "npm run test:e2e 可能失败或未生成报告。"

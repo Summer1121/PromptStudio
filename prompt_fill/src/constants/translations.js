@@ -63,7 +63,11 @@ export const TRANSLATIONS = {
     template_tags: "模版标签",
     add_tags: "添加标签",
     edit_tags: "编辑标签",
-    manage_tags: "管理标签",
+    manage_tags: '管理标签',
+    collapse_all: '一键收起',
+
+    // --- 标签管理器 ---
+    tag_manager_title: '标签管理器',
     add_new_tag: "添加新标签",
     uncategorized: "未分类",
     expand_view: "展开视图",
@@ -135,6 +139,11 @@ export const TRANSLATIONS = {
     save: "保存",
     llm_settings_not_configured: "大模型设置未配置",
     ai_generation_failed: "AI 生成失败",
+    assign_tags: "分配标签",
+    tag_manager_note: "注意：暂不支持添加子文件夹或拖拽排序。",
+    add_new_tag_folder: "添加新的一级文件夹",
+    multiple_tags_selected: "已选 {{count}} 个标签",
+    clear_selection: "清除选择",
   },
   en: {
     template_management: "Templates",
@@ -198,7 +207,11 @@ export const TRANSLATIONS = {
     template_tags: "Template Tags",
     add_tags: "Add Tags",
     edit_tags: "Edit Tags",
-    manage_tags: "Manage Tags",
+    manage_tags: 'Manage Tags',
+    collapse_all: 'Collapse All',
+    
+    // --- Tag Manager ---
+    tag_manager_title: 'Tag Manager',
     add_new_tag: "Add new tag",
     uncategorized: "Uncategorized",
     expand_view: "Expand View",
@@ -270,5 +283,10 @@ export const TRANSLATIONS = {
     save: "Save",
     llm_settings_not_configured: "LLM settings not configured",
     ai_generation_failed: "AI generation failed",
+    assign_tags: "Assign Tags",
+    tag_manager_note: "Note: Adding sub-folders and drag-and-drop sorting are not yet supported.",
+    add_new_tag_folder: "Add new top-level folder",
+    multiple_tags_selected: "{{count}} tags selected",
+    clear_selection: "Clear selection",
   },
 };

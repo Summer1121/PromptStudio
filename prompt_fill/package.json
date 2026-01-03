@@ -10,7 +10,8 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "tauri:dev": "npx tauri dev",
-    "test:e2e": "start-server-and-test tauri:dev http://localhost:1420 \"playwright test --config ./tests/e2e/playwright.config.js\""
+    "test:e2e": "start-server-and-test tauri:dev http://localhost:1420 \"npm run test:playwright\"",
+    "test:playwright": "playwright test --config ./tests/e2e/playwright.config.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",

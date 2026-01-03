@@ -3,12 +3,22 @@ import React, { useRef } from 'react';
 import { CATEGORY_STYLES } from '../constants/styles';
 import { getLocalized } from '../utils/helpers';
 
-export const VisualEditor = React.forwardRef(({ value, onChange, banks, categories, isEditing, onVariableClick, activeTemplate, defaults, language, onUpdate }, ref) => {
+export const VisualEditor = React.forwardRef(({ value, onChange, banks, categories, isEditing, onVariableClick, activeTemplate, defaults, language, onUpdate, isPickerOpening }, ref) => {
   const preRef = useRef(null);
 
   const handleScroll = (e) => {
     if (preRef.current) {
       preRef.current.scrollTop = e.target.scrollTop;
+    }
+  };
+
+  const handleInput = (e) => {
+    if (isPickerOpening && isPickerOpening.current) {
+      // Input might be caused by variable picker, so ignore it for now
+      return;
+    }
+    if (onUpdate) {
+      onUpdate(e.currentTarget.textContent);
     }
   };
 
@@ -60,15 +70,15 @@ export const VisualEditor = React.forwardRef(({ value, onChange, banks, categori
   return (
     <div className="relative w-full h-full overflow-y-auto bg-gray-50">
       {/* Backdrop */}
-      <pre
-        ref={preRef}
-        className={`absolute inset-0 p-8 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words m-0 ${isEditing ? 'text-transparent pointer-events-none' : 'text-gray-800 pointer-events-auto'}`}
-        style={{ fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }} 
-        contentEditable={!isEditing}
-        onBlur={(e) => onUpdate(e.currentTarget.textContent)}
-        aria-hidden="true"
-      >
-        {renderHighlights(value)}
+              <pre
+                ref={preRef}
+                className={`absolute inset-0 p-8 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words m-0 ${isEditing ? 'text-transparent pointer-events-none' : 'text-gray-800 pointer-events-auto'}`}
+                style={{ fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }} 
+                contentEditable={!isEditing}
+                suppressContentEditableWarning={true}
+                onInput={handleInput}
+                aria-hidden="true"
+              >        {renderHighlights(value)}
         <br />
       </pre>
 

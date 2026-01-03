@@ -1,12 +1,24 @@
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { confirm, message } from '@tauri-apps/plugin-dialog';
 import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
 import { SettingsModal } from './components/SettingsModal';
-
+import { readDataFile, writeDataFile } from './services/tauri-service';
+import { getLocalized } from './utils/helpers';
+import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAG_TREE } from './data/templates';
+import { INITIAL_BANKS, INITIAL_CATEGORIES, INITIAL_DEFAULTS } from './data/banks';
+import { TRANSLATIONS } from './constants/translations';
+import { TAG_LABELS } from './constants/styles';
+import { Check } from 'lucide-react';
 
 const App = () => {
   const APP_VERSION = "0.7.2"; // Final authoritative version with Tauri dialog
+
+  // --- UI & Control State ---
+  const [sidebarWidth, setSidebarWidth] = useState(380);
+  const [isResizing, setIsResizing] = useState(false);
 
   // --- Core Data State ---
   const [templates, setTemplates] = useState([]);
@@ -16,7 +28,7 @@ const App = () => {
   const [activeTemplateId, setActiveTemplateId] = useState(null);
   const [language, setLanguage] = useState("cn");
   const [templateLanguage, setTemplateLanguage] = useState("cn");
-  const [allTags, setAllTags] = useState(TEMPLATE_TAGS);
+  const [tagTree, setTagTree] = useState(TEMPLATE_TAG_TREE);
   const [llmSettings, setLlmSettings] = useState({});
   
   // --- UI & Control State ---
@@ -28,10 +40,31 @@ const App = () => {
   
   // Sidebar filtering/sorting state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]); // This will now represent an array of paths
   const [sortOrder, setSortOrder] = useState("newest");
   const [randomSeed, setRandomSeed] = useState(Date.now());
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [openDirectories, setOpenDirectories] = useState(null); // null: initial state, all open. {}: collapsed.
+
+  const isOpenDirectory = (path) => {
+    if (openDirectories === null) return true; // Default to all open initially
+    return openDirectories[path] ?? false; // After first interaction, default to closed
+  };
+
+  const toggleDirectory = (path) => {
+    const newOpenState = openDirectories === null 
+      ? flatTags.reduce((acc, p) => ({ ...acc, [p]: true }), {}) 
+      : openDirectories;
+      
+    setOpenDirectories({
+      ...newOpenState,
+      [path]: !(newOpenState[path] ?? false)
+    });
+  };
+
+  const collapseAllDirectories = () => {
+    setOpenDirectories({}); // Empty object means all are collapsed (defaults to false)
+  };
   
   // Template renaming state
   const [editingTemplateNameId, setEditingTemplateNameId] = useState(null);
@@ -46,28 +79,112 @@ const App = () => {
     bankKey: null,
     variableIndex: null,
   });
+  const [tagMenuState, setTagMenuState] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    options: [], // This will be allTags
+  });
   const [editedPreviewContent, setEditedPreviewContent] = useState(null);
+  const [originalContentForDirtyCheck, setOriginalContentForDirtyCheck] = useState(null);
+  const isPickerOpening = useRef(false);
   
   const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileTab, setMobileTab] = useState(isMobileDevice ? "home" : "editor");
   const textareaRef = useRef(null);
+
+  const startResizing = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e) => {
+    if (isResizing) {
+      const newWidth = e.clientX;
+      if (newWidth >= 280 && newWidth <= 600) {
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
   
   // --- Data Persistence Layer (Tauri) ---
   useEffect(() => {
     const loadData = async () => {
       const savedData = await readDataFile();
       if (savedData && savedData.templates && savedData.templates.length > 0) {
-        setTemplates(savedData.templates);
+        
+        // --- Data Migration Logic ---
+        // 1. Build a lookup map for leaf nodes to their full paths
+        const leafToFullPathMap = {};
+        const buildMap = (nodes, prefix) => {
+          nodes.forEach(node => {
+            const path = prefix ? `${prefix}/${node.name}` : node.name;
+            // Only map the leaf node name if it's a child, to avoid ambiguity
+            if (prefix) {
+              leafToFullPathMap[node.name] = path;
+            }
+            if (node.children?.length > 0) {
+              buildMap(node.children, path);
+            }
+          });
+        };
+        buildMap(TEMPLATE_TAG_TREE, '');
+
+        // 2. Map over templates to migrate them
+        const migratedTemplates = savedData.templates.map(t => {
+          let currentTags = t.tags;
+
+          // A. Migrate from old tagPath string to tags array if necessary
+          if (t.tagPath && !currentTags) {
+            currentTags = [t.tagPath];
+          }
+
+          let tagsUpdated = false;
+          if (currentTags && Array.isArray(currentTags)) {
+            // B. Fix leaf-only tags by replacing them with full paths
+            const correctedTags = currentTags.map(tag => {
+              if (tag && !tag.includes('/') && leafToFullPathMap[tag]) {
+                tagsUpdated = true;
+                return leafToFullPathMap[tag];
+              }
+              return tag;
+            });
+            
+            if (tagsUpdated) {
+              // C. Deduplicate tags after correction
+              currentTags = [...new Set(correctedTags)];
+            }
+          }
+
+          const newTemplate = { ...t, tags: currentTags || [] };
+          delete newTemplate.tagPath; // Ensure old property is always removed
+          return newTemplate;
+        });
+        // --- End of Migration Logic ---
+
+        setTemplates(migratedTemplates);
         setBanks(savedData.banks || INITIAL_BANKS);
         setCategories(savedData.categories || INITIAL_CATEGORIES);
         setDefaults(savedData.defaults || INITIAL_DEFAULTS);
         setLanguage(savedData.language || 'cn');
         setTemplateLanguage(savedData.templateLanguage || 'cn');
-        setAllTags(savedData.allTags || TEMPLATE_TAGS);
+        setTagTree(savedData.tagTree || TEMPLATE_TAG_TREE);
         setLlmSettings(savedData.llmSettings || {});
         
-        const activeIdIsValid = savedData.templates.some(t => t.id === savedData.activeTemplateId);
-        setActiveTemplateId(activeIdIsValid ? savedData.activeTemplateId : savedData.templates[0].id);
+        const activeIdIsValid = migratedTemplates.some(t => t.id === savedData.activeTemplateId);
+        setActiveTemplateId(activeIdIsValid ? savedData.activeTemplateId : (migratedTemplates[0]?.id || null));
       } else {
         setTemplates(INITIAL_TEMPLATES_CONFIG);
         setBanks(INITIAL_BANKS);
@@ -91,12 +208,17 @@ const App = () => {
         activeTemplateId,
         language,
         templateLanguage,
-        allTags,
+        tagTree,
         llmSettings,
       });
     }, 1000);
     return () => clearTimeout(handler);
-  }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, allTags, llmSettings, dataLoaded]);
+  }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, tagTree, llmSettings, dataLoaded]);
+
+  useEffect(() => {
+    setEditedPreviewContent(null);
+    setOriginalContentForDirtyCheck(null);
+  }, [activeTemplateId]);
 
   // --- Helper Functions ---
   const t = (key, params = {}) => {
@@ -109,25 +231,52 @@ const App = () => {
     return TAG_LABELS[language]?.[tag] || tag;
   }, [language]);
 
+  const flatTags = useMemo(() => {
+    const flatten = (nodes, prefix = '') => {
+      let paths = [];
+      if (!Array.isArray(nodes)) return paths;
+      nodes.forEach(node => {
+        const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
+        paths.push(currentPath);
+        if (node.children && node.children.length > 0) {
+          paths = paths.concat(flatten(node.children, currentPath));
+        }
+      });
+      return paths;
+    };
+    return flatten(tagTree || []);
+  }, [tagTree]);
+
   // --- Derived State ---
   const activeTemplate = useMemo(() => {
       if (!activeTemplateId || !Array.isArray(templates) || templates.length === 0) return null;
       return templates.find(t => t.id === activeTemplateId);
   }, [templates, activeTemplateId]);
+
+  const isDirty = originalContentForDirtyCheck && activeTemplate && JSON.stringify(activeTemplate.content) !== JSON.stringify(originalContentForDirtyCheck);
   
   const filteredTemplates = useMemo(() => {
-    if (!Array.isArray(templates)) return [];
-    
-    let filtered = templates.filter(t => {
+    let processedTemplates = [...templates];
+
+    // 1. Filter by search query
+    if (searchQuery) {
+      processedTemplates = processedTemplates.filter(t => {
         if (!t || !t.name) return false;
         const templateName = getLocalized(t.name, language);
-        const matchesSearch = !searchQuery || templateName.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesTags = selectedTags === "" || (t.tags && t.tags.includes(selectedTags));
-        return matchesSearch && matchesTags;
-    });
+        return templateName.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+    }
 
-    // Sort the filtered templates
-    filtered = [...filtered].sort((a, b) => {
+    // 2. Filter by selected tag paths from the filter dropdown
+    if (selectedTags.length > 0) {
+      processedTemplates = processedTemplates.filter(t => {
+        if (!t.tags || t.tags.length === 0) return false;
+        return t.tags.some(templateTag => selectedTags.some(filterTag => templateTag.startsWith(filterTag)));
+      });
+    }
+
+    // 3. Sort the filtered templates
+    processedTemplates.sort((a, b) => {
         const nameA = getLocalized(a.name, language) || '';
         const nameB = getLocalized(b.name, language) || '';
         switch(sortOrder) {
@@ -138,28 +287,45 @@ const App = () => {
                 const hashB = (b.id + randomSeed).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 return hashA - hashB;
             case 'oldest': return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
-            case 'newest':
-            default:
-                return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+            case 'newest': default: return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         }
     });
 
-    if (selectedTags) {
-        return { [selectedTags]: filtered };
-    }
+    // 4. Group into a tree structure based on the `tags` array
+    const tree = {};
+    processedTemplates.forEach(template => {
+      const paths = template.tags && template.tags.length > 0 ? template.tags : ['uncategorized'];
+      paths.forEach(path => {
+        if (path === 'uncategorized' || !path) {
+          if (!tree.uncategorized) tree.uncategorized = { children: {}, templates: [] };
+          if (!tree.uncategorized.templates.some(t => t.id === template.id)) {
+            tree.uncategorized.templates.push(template);
+          }
+          return;
+        }
 
-    const grouped = filtered.reduce((acc, template) => {
-        const tags = template.tags && template.tags.length > 0 ? template.tags : ['uncategorized'];
-        tags.forEach(tag => {
-            if (!acc[tag]) {
-                acc[tag] = [];
-            }
-            acc[tag].push(template);
-        });
-        return acc;
-    }, {});
-
-    return grouped;
+        const parts = path.split('/');
+        let parentNode = tree;
+        // Traverse to find the parent of the leaf
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+          if (!parentNode[part]) {
+            parentNode[part] = { children: {}, templates: [] };
+          }
+          parentNode = parentNode[part].children;
+        }
+        
+        // Add template to the leaf node
+        const leafName = parts[parts.length - 1];
+        if (!parentNode[leafName]) {
+          parentNode[leafName] = { children: {}, templates: [] };
+        }
+        if (!parentNode[leafName].templates.some(t => t.id === template.id)) {
+          parentNode[leafName].templates.push(template);
+        }
+      });
+    });
+    return tree;
   }, [templates, searchQuery, selectedTags, sortOrder, randomSeed, language]);
 
   // --- Action Handlers ---
@@ -176,7 +342,7 @@ const App = () => {
     const duplicateName = (name) => {
       if (typeof name === 'string') return `${name}${t('copy_suffix')}`;
       const newName = { ...name };
-      Object.keys(newName).forEach(lang => { newName[lang] = `${newName[lang]}${t('copy_suffix') || ' (Copy)'}`; });
+      Object.keys(newName).forEach(lang => { newName[lang] = `${newName[lang]}${t('copy_suffix') || ' (Copy)'}` });
       return newName;
     };
     const newTemplate = { ...templateToCopy, id: newId, name: duplicateName(templateToCopy.name), createdAt: new Date().toISOString() };
@@ -268,6 +434,7 @@ const App = () => {
   };
 
   const handleVariableClick = (key, event, variableIndex) => {
+    isPickerOpening.current = true;
     const bank = banks[key];
     if (!bank || !bank.options) return;
 
@@ -280,6 +447,7 @@ const App = () => {
       bankKey: key,
       variableIndex: variableIndex,
     });
+    setTimeout(() => { isPickerOpening.current = false; }, 100);
   };
 
   const handleVariableSelect = (selectedIndex) => {
@@ -297,69 +465,74 @@ const App = () => {
 
     setVariablePickerState({ ...variablePickerState, visible: false });
   };
+  
+  const onOpenTagMenu = (rect) => {
+    setTagMenuState({
+      visible: true,
+      x: rect.left,
+      y: rect.bottom,
+      options: flatTags, // Use flatTags for options
+    });
+  };
+
+  const onCloseTagMenu = () => {
+    setTagMenuState(prev => ({ ...prev, visible: false }));
+  };
 
   const handleSaveAsNew = () => {
-    if (!editedPreviewContent) return;
-
-    // This is a brittle and inefficient way to convert the rendered content back to a template.
-    // It might fail in many cases. A better solution would be to use a proper rich text editor
-    // that can handle variables as custom nodes.
-    let newContent = editedPreviewContent;
-    const valueToPlaceholderMap = {};
-    Object.entries(banks).forEach(([bankKey, bank]) => {
-      bank.options.forEach((option, index) => {
-        const value = getLocalized(option, language);
-        // This will have issues if multiple variables have the same value.
-        valueToPlaceholderMap[value] = `{{${bankKey}}}`;
+    let contentToSave;
+    if (editedPreviewContent) {
+      // Logic for saving from edited preview
+      let newContent = editedPreviewContent;
+      const valueToPlaceholderMap = {};
+      Object.entries(banks).forEach(([bankKey, bank]) => {
+        bank.options.forEach((option) => {
+          const value = getLocalized(option, language);
+          valueToPlaceholderMap[value] = `{{${bankKey}}}`;
+        });
       });
-    });
-
-    Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
-      newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
-    });
+      Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
+        newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
+      });
+      contentToSave = newContent;
+    } else {
+      // Logic for saving from dirty content state
+      contentToSave = activeTemplate.content;
+    }
 
     const newId = `tpl_${Date.now()}`;
-    const newTemplate = {
-      id: newId,
-      name: `${getLocalized(activeTemplate.name, language)} (Edited)`,
-      author: "Me",
-      content: newContent,
-      selections: {},
-      tags: activeTemplate.tags,
-      createdAt: new Date().toISOString(),
-    };
+    const newName = `${getLocalized(activeTemplate.name, language)} (Edited)`;
+    const newTemplate = { ...activeTemplate, id: newId, name: newName, content: contentToSave, createdAt: new Date().toISOString() };
+    
     setTemplates(prev => [newTemplate, ...prev]);
     setActiveTemplateId(newId);
+    setOriginalContentForDirtyCheck(null);
     setEditedPreviewContent(null);
   };
 
   const handleOverwrite = () => {
-    if (!editedPreviewContent) return;
-
-    // This is a brittle and inefficient way to convert the rendered content back to a template.
-    // It might fail in many cases. A better solution would be to use a proper rich text editor
-    // that can handle variables as custom nodes.
-    let newContent = editedPreviewContent;
-    const valueToPlaceholderMap = {};
-    Object.entries(banks).forEach(([bankKey, bank]) => {
-      bank.options.forEach((option, index) => {
-        const value = getLocalized(option, language);
-        // This will have issues if multiple variables have the same value.
-        valueToPlaceholderMap[value] = `{{${bankKey}}}`;
+    if (editedPreviewContent) {
+      let newContent = editedPreviewContent;
+      const valueToPlaceholderMap = {};
+      Object.entries(banks).forEach(([bankKey, bank]) => {
+        bank.options.forEach((option) => {
+          const value = getLocalized(option, language);
+          valueToPlaceholderMap[value] = `{{${bankKey}}}`;
+        });
       });
-    });
-
-    Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
-      newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
-    });
-
-    handleUpdateTemplate(activeTemplate.id, { content: newContent });
+      Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
+        newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
+      });
+      handleUpdateTemplate(activeTemplate.id, { content: newContent });
+    }
+    // For both cases (preview edit or content edit), clear the dirty states
+    setOriginalContentForDirtyCheck(null);
     setEditedPreviewContent(null);
   };
 
   const handleGenerate = async () => {
     if (!llmSettings.endpoint || !llmSettings.apiKey) {
-      alert(t('llm_settings_not_configured'));
+      await message(t('llm_settings_not_configured'));
       return;
     }
 
@@ -375,7 +548,7 @@ const App = () => {
           'Authorization': `Bearer ${llmSettings.apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo", // Or any other model
+          model: "gpt-3.5-turbo",
           messages: [
             {
               role: "system",
@@ -393,12 +566,11 @@ const App = () => {
       const result = JSON.parse(data.choices[0].message.content);
       console.log('Generated data:', result);
       
-      // I will add the logic to update the template with the generated tags and variables later.
-      alert(`Generated Tags: ${result.tags.join(', ')}\nGenerated Variables: ${result.variables.join(', ')}`);
+      await message(`Generated Tags: ${result.tags.join(', ')}\nGenerated Variables: ${result.variables.join(', ')}`);
 
     } catch (error) {
       console.error('Error generating tags and variables:', error);
-      alert(t('ai_generation_failed'));
+      await message(t('ai_generation_failed'));
     }
   };
   
@@ -411,7 +583,7 @@ const App = () => {
       {variablePickerState.visible && (
         <>
           <div 
-            className="fixed inset-0 z-40" 
+            className="fixed inset-0 z-40"
             onClick={() => setVariablePickerState({ ...variablePickerState, visible: false })}
           />
           <div style={{ position: 'fixed', top: variablePickerState.y, left: variablePickerState.x, zIndex: 50 }}>
@@ -423,10 +595,44 @@ const App = () => {
           </div>
         </>
       )}
+      {tagMenuState.visible && (
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={onCloseTagMenu}
+          />
+          <div style={{ position: 'fixed', top: tagMenuState.y, left: tagMenuState.x, zIndex: 50 }}>
+            <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[160px] z-[100]">
+              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b">{t('assign_tags')}</div>
+              <div className="max-h-48 overflow-y-auto">
+                {(tagMenuState.options || []).map(path => (
+                  <button
+                    key={path}
+                    onClick={() => {
+                      const currentTags = activeTemplate.tags || [];
+                      const newTags = currentTags.includes(path)
+                        ? currentTags.filter(p => p !== path)
+                        : [...currentTags, path];
+                      handleUpdateTemplate(activeTemplate.id, { tags: newTags });
+                      onCloseTagMenu();
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center justify-between ${
+                      (activeTemplate.tags || []).includes(path) ? 'text-orange-600 font-semibold' : 'text-gray-700'
+                    }`}
+                  >
+                    <span>{path}</span>
+                    {(activeTemplate.tags || []).includes(path) && <Check size={14} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       {isTagManagerOpen && (
         <TagManager
-          tags={allTags}
-          setTags={setAllTags}
+          tags={tagTree}
+          setTags={setTagTree}
           onClose={() => setIsTagManagerOpen(false)}
           t={t}
         />
@@ -440,42 +646,48 @@ const App = () => {
         />
       )}
       <div className="flex flex-1 overflow-hidden">
-        <TemplatesSidebar
-          templates={filteredTemplates}
-          activeTemplateId={activeTemplateId}
-          setActiveTemplateId={setActiveTemplateId}
-          onAddTemplate={handleAddTemplate}
-          onDuplicateTemplate={handleDuplicateTemplate}
-          onDeleteTemplate={handleDeleteTemplate}
-          onRenameTemplate={startRenamingTemplate}
-          saveTemplateName={saveTemplateName}
-          editingTemplateNameId={editingTemplateNameId}
-          setEditingTemplateNameId={setEditingTemplateNameId}
-          tempTemplateName={tempTemplateName}
-          setTempTemplateName={setTempTemplateName}
-          tempTemplateAuthor={tempTemplateAuthor}
-          setTempTemplateAuthor={setTempTemplateAuthor}
-          handleResetTemplate={() => alert('Reset not implemented yet')}
-          handleExportTemplate={() => alert('Export not implemented yet')}
-          language={language}
-          setLanguage={setLanguage}
-          t={t}
-          displayTag={displayTag}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          selectedTags={selectedTags}
-          setSelectedTags={setSelectedTags}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          isSortMenuOpen={isSortMenuOpen}
-          setIsSortMenuOpen={setIsSortMenuOpen}
-          setRandomSeed={setRandomSeed}
-          setDiscoveryView={setDiscoveryView}
-          setIsSettingsOpen={setIsSettingsOpen}
-          tags={allTags}
-          onManageTags={() => setIsTagManagerOpen(true)}
-        />
-        <main className="flex-1 flex flex-col relative overflow-y-auto">
+        <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
+          <TemplatesSidebar
+            templates={filteredTemplates}
+            activeTemplateId={activeTemplateId}
+            setActiveTemplateId={setActiveTemplateId}
+            onAddTemplate={handleAddTemplate}
+            onDuplicateTemplate={handleDuplicateTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            onRenameTemplate={startRenamingTemplate}
+            saveTemplateName={saveTemplateName}
+            editingTemplateNameId={editingTemplateNameId}
+            setEditingTemplateNameId={setEditingTemplateNameId}
+            tempTemplateName={tempTemplateName}
+            setTempTemplateName={setTempTemplateName}
+            tempTemplateAuthor={tempTemplateAuthor}
+            setTempTemplateAuthor={setTempTemplateAuthor}
+            handleResetTemplate={() => alert('Reset not implemented yet')}
+            handleExportTemplate={() => alert('Export not implemented yet')}
+            language={language}
+            setLanguage={setLanguage}
+            t={t}
+            displayTag={displayTag}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedTags={selectedTags}
+            setSelectedTags={setSelectedTags}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
+            isSortMenuOpen={isSortMenuOpen}
+            setIsSortMenuOpen={setIsSortMenuOpen}
+            setRandomSeed={setRandomSeed}
+            setDiscoveryView={setDiscoveryView}
+            setIsSettingsOpen={setIsSettingsOpen}
+            tagTree={tagTree}
+            onManageTags={() => setIsTagManagerOpen(true)}
+            isOpenDirectory={isOpenDirectory}
+            toggleDirectory={toggleDirectory}
+            collapseAllDirectories={collapseAllDirectories}
+          />
+        </div>
+        <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200"/>
+        <main className="flex-1 flex flex-col relative overflow-y-auto z-10">
            {activeTemplate ? (
              <>
                <EditorToolbar
@@ -483,20 +695,23 @@ const App = () => {
                  onCopy={handleCopy}
                  copied={copied}
                  isEditing={isEditing}
-                 setIsEditing={
-                  (editing) => {
+                 setIsEditing={(editing) => {
                     setIsEditing(editing);
-                    if (!editing) {
-                      setEditedPreviewContent(getLocalized(activeTemplate.content, templateLanguage));
+                    if (editing && activeTemplate) {
+                      setOriginalContentForDirtyCheck(activeTemplate.content);
                     }
-                  }
-                 }
+                  }}
+                 isDirty={isDirty}
+                 editedPreviewContent={editedPreviewContent}
                  t={t}
                  language={language}
-                 editedPreviewContent={editedPreviewContent}
                  onOverwrite={handleOverwrite}
                  onSaveAsNew={handleSaveAsNew}
                  onGenerate={handleGenerate}
+                 allTags={flatTags}
+                 onUpdateTemplate={handleUpdateTemplate}
+                 onOpenTagMenu={onOpenTagMenu}
+                 onCloseTagMenu={onCloseTagMenu}
                />
                <VisualEditor
                  ref={textareaRef}
@@ -516,6 +731,7 @@ const App = () => {
                  defaults={defaults}
                  language={language}
                  onUpdate={setEditedPreviewContent}
+                 isPickerOpening={isPickerOpening}
                />
              </>
            ) : (
@@ -533,3 +749,5 @@ const App = () => {
     </div>
   );
 };
+
+export default App;

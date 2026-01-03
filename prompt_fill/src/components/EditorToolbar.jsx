@@ -1,20 +1,26 @@
-import React from 'react';
-import { FileText, Copy, Edit3, Check, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { FileText, Copy, Edit3, Check, Sparkles, Tag } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 
-export const EditorToolbar = React.memo(({ 
+export const EditorToolbar = React.memo(({
   activeTemplate,
   onCopy,
   copied,
   isEditing,
   setIsEditing,
+  isDirty,
   t,
   language,
   editedPreviewContent,
   onSaveAsNew,
   onOverwrite,
   onGenerate,
+  allTags,
+  onUpdateTemplate,
+  onOpenTagMenu,
+  onCloseTagMenu,
 }) => {
+  const tagButtonRef = useRef(null);
 
   if (!activeTemplate) {
     return (
@@ -32,12 +38,23 @@ export const EditorToolbar = React.memo(({
         </div>
         <div>
             <h2 className="font-bold text-gray-800 text-base leading-tight">{getLocalized(activeTemplate.name, language)}</h2>
-            <p className="text-xs text-gray-500 leading-tight mt-0.5">by {activeTemplate.author || 'Unknown'}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-gray-500 leading-tight mt-0.5">by {activeTemplate.author || 'Unknown'}</p>
+              {activeTemplate.tags && activeTemplate.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {activeTemplate.tags.map(tag => (
+                    <span key={tag} className="px-2 py-0.5 text-[10px] rounded-full bg-gray-100 text-gray-600">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        {!isEditing && editedPreviewContent && (
+        {(isDirty || editedPreviewContent) && (
           <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={onOverwrite}
@@ -53,31 +70,17 @@ export const EditorToolbar = React.memo(({
             </button>
           </div>
         )}
-        {!isEditing && editedPreviewContent && (
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={onOverwrite}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-blue-500 text-white hover:bg-blue-600"
-            >
-              {t('overwrite_template')}
-            </button>
-            <button
-              onClick={onSaveAsNew}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-green-500 text-white hover:bg-green-600"
-            >
-              {t('save_as_new_template')}
-            </button>
-          </div>
-        )}
-        {!isEditing && !editedPreviewContent && (
-            <button
-                onClick={onGenerate}
-                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-purple-500 text-white hover:bg-purple-600"
-            >
-                <Sparkles size={16} />
-                {t('ai_generate')}
-            </button>
-        )}
+        
+        <div className="relative">
+          <button
+            ref={tagButtonRef}
+            onClick={(e) => onOpenTagMenu(e.currentTarget.getBoundingClientRect())}
+            className="p-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-gray-100 text-gray-600 hover:bg-gray-200"
+          >
+            <Tag size={16} />
+          </button>
+        </div>
+
         <button
           onClick={onCopy}
           className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${
