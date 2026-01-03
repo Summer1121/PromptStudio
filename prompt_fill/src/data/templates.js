@@ -573,6 +573,8 @@ Outside the window, a real {{character_name}} is curiously looking inside at the
 {{ratio}}`
 };
 
+
+
 /**
  * 可用的模板标签
  */

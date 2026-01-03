@@ -6,7 +6,7 @@ test.describe('Core App Functionality', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     // Wait for the app to load data and stabilize from the file system
-    await page.waitForTimeout(3000); 
+    await page.waitForTimeout(10000); 
   });
 
   test('should load the main page and display templates', async ({ page }) => {
@@ -125,5 +125,55 @@ test.describe('Core App Functionality', () => {
     // 11. Verify that the current template has been updated
     const currentTextarea = page.locator('textarea').first();
     await expect(currentTextarea).toHaveValue(anotherEditedContent);
+  });
+
+  test('should open settings, configure LLM, and trigger AI generation', async ({ page }) => {
+    // 1. Mock the API response
+    await page.route('**/api/mock-llm', route => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                tags: ['ai-generated', 'test'],
+                variables: ['var1', 'var2']
+              })
+            }
+          }]
+        })
+      });
+    });
+
+    // 2. Open settings
+    await page.getByTitle('设置').click();
+    await expect(page.getByRole('heading', { name: '设置' })).toBeVisible();
+
+    // 3. Configure LLM settings
+    await page.getByPlaceholder('https://api.openai.com/v1/chat/completions').fill('**/api/mock-llm');
+    await page.getByLabel('大模型 API 密钥').fill('test-api-key');
+    await page.getByRole('button', { name: '保存' }).click();
+    await expect(page.getByRole('heading', { name: '设置' })).not.toBeVisible();
+
+    // 4. Click the first template
+    await page.locator('div[class*="grid"] > div').first().click();
+
+    // 5. Listen for the alert dialog
+    let alertMessage = '';
+    page.on('dialog', async dialog => {
+      alertMessage = dialog.message();
+      await dialog.dismiss();
+    });
+
+    // 6. Click the "AI Generate" button
+    const editorToolbar = page.locator('main').locator('.border-b');
+    const generateButton = editorToolbar.getByRole('button', { name: 'AI 生成' });
+    await generateButton.click();
+
+    // 7. Wait for the dialog to appear and assert its message
+    await page.waitForEvent('dialog');
+    expect(alertMessage).toContain('Generated Tags: ai-generated, test');
+    expect(alertMessage).toContain('Generated Variables: var1, var2');
   });
 });

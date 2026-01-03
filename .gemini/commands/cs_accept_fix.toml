@@ -6,7 +6,7 @@ set -e
 
 RESULTS_FILE="prompt_fill/tests/e2e/output/test-results.json"
 HASH_FILE=".gemini/test_results.json.md5"
-MODIFIED_FILE="prompt_fill/src/constants/translations.js" # This needs to be dynamic
+MODIFIED_FILES=("prompt_fill/src/constants/translations.js" "prompt_fill/tests/e2e/app.spec.js" "prompt_fill/src/App.jsx")
 
 # 1. 检查测试结果文件是否存在
 if [ ! -f "$RESULTS_FILE" ]; then
@@ -22,8 +22,10 @@ echo "  - 哈希值已更新为: $CURRENT_HASH"
 
 # 3. 将更改添加到 Git
 echo "2. 正在将更改暂存到 Git..."
-git add "$MODIFIED_FILE" "$HASH_FILE"
-echo "  - 已暂存: $MODIFIED_FILE"
+git add "${MODIFIED_FILES[@]}" "$HASH_FILE"
+for file in "${MODIFIED_FILES[@]}"; do
+    echo "  - 已暂存: $file"
+done
 echo "  - 已暂存: $HASH_FILE"
 
 # 4. 检查是否有任何暂存的更改

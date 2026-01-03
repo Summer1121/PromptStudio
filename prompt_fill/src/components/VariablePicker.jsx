@@ -2,9 +2,10 @@
 import React from 'react';
 
 export const VariablePicker = ({ options, onSelect, onClose }) => {
+  console.log('VariablePicker rendered with options:', options);
   return (
     <div 
-      className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200"
+      className="absolute z-50 bg-white rounded-md shadow-lg border border-gray-200 min-w-max"
     >
       <div className="p-2">
         <ul className="space-y-1">

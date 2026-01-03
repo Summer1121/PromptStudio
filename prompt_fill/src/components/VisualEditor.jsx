@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { CATEGORY_STYLES } from '../constants/styles';
 import { getLocalized } from '../utils/helpers';
 
-export const VisualEditor = React.forwardRef(({ value, onChange, banks, categories, isEditing, onVariableClick, activeTemplate, defaults, language }, ref) => {
+export const VisualEditor = React.forwardRef(({ value, onChange, banks, categories, isEditing, onVariableClick, activeTemplate, defaults, language, onUpdate }, ref) => {
   const preRef = useRef(null);
 
   const handleScroll = (e) => {
@@ -34,26 +34,18 @@ export const VisualEditor = React.forwardRef(({ value, onChange, banks, categori
             </button>
           );
         } else {
-          const selectionKey = `${activeTemplate.id}-${key}`;
+          const selectionKey = `${activeTemplate.id}-${key}-${i}`;
           const selectionIndex = activeTemplate.selections?.[selectionKey];
           let content = part;
 
           if (selectionIndex !== undefined && bank) {
             content = getLocalized(bank.options[selectionIndex], language);
-          } else {
-            const defaultIndex = defaults[key];
-            if (defaultIndex !== undefined && bank) {
-              content = getLocalized(bank.options[defaultIndex], language);
-            }
           }
-
+          
           return (
             <button
               key={i}
-              onClick={(e) => {
-                console.log('Variable clicked in VisualEditor');
-                onVariableClick && onVariableClick(key, e);
-              }}
+              onClick={(e) => onVariableClick && onVariableClick(key, e, i)}
               className={`${style.bg} ${style.text} font-bold rounded-sm cursor-pointer`}
             >
               {content}
@@ -66,12 +58,14 @@ export const VisualEditor = React.forwardRef(({ value, onChange, banks, categori
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-gray-50">
+    <div className="relative w-full h-full overflow-y-auto bg-gray-50">
       {/* Backdrop */}
       <pre
         ref={preRef}
         className={`absolute inset-0 p-8 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words m-0 ${isEditing ? 'text-transparent pointer-events-none' : 'text-gray-800 pointer-events-auto'}`}
         style={{ fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }} 
+        contentEditable={!isEditing}
+        onBlur={(e) => onUpdate(e.currentTarget.textContent)}
         aria-hidden="true"
       >
         {renderHighlights(value)}

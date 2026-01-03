@@ -1,23 +1,8 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Copy, Plus, X, Settings, Check, Edit3, Eye, Trash2, FileText, Pencil, Copy as CopyIcon, Globe, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, GripVertical, Download, Upload, Image as ImageIcon, List, Undo, Redo, Maximize2, RotateCcw, LayoutGrid, Sidebar, Search, ArrowRight, User, ArrowUpRight, ArrowUpDown, RefreshCw, Sparkles } from 'lucide-react';
-import { confirm } from '@tauri-apps/plugin-dialog';
-
-// Tauri services for file system access
-import { readDataFile, writeDataFile } from './services/tauri-service';
-
-// Initial data for first-time setup
-import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAGS } from './data/templates';
-import { INITIAL_BANKS, INITIAL_DEFAULTS, INITIAL_CATEGORIES } from './data/banks';
-
-// Constants and Utils
-import { TRANSLATIONS } from './constants/translations';
-import { TAG_LABELS } from './constants/styles';
-import { getLocalized } from './utils/helpers';
-
-// UI Components
 import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
+import { TagManager } from './components/TagManager';
+import { SettingsModal } from './components/SettingsModal';
 
 
 const App = () => {
@@ -31,12 +16,15 @@ const App = () => {
   const [activeTemplateId, setActiveTemplateId] = useState(null);
   const [language, setLanguage] = useState("cn");
   const [templateLanguage, setTemplateLanguage] = useState("cn");
+  const [allTags, setAllTags] = useState(TEMPLATE_TAGS);
+  const [llmSettings, setLlmSettings] = useState({});
   
   // --- UI & Control State ---
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDiscoveryView, setDiscoveryView] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   
   // Sidebar filtering/sorting state
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,6 +63,8 @@ const App = () => {
         setDefaults(savedData.defaults || INITIAL_DEFAULTS);
         setLanguage(savedData.language || 'cn');
         setTemplateLanguage(savedData.templateLanguage || 'cn');
+        setAllTags(savedData.allTags || TEMPLATE_TAGS);
+        setLlmSettings(savedData.llmSettings || {});
         
         const activeIdIsValid = savedData.templates.some(t => t.id === savedData.activeTemplateId);
         setActiveTemplateId(activeIdIsValid ? savedData.activeTemplateId : savedData.templates[0].id);
@@ -101,10 +91,12 @@ const App = () => {
         activeTemplateId,
         language,
         templateLanguage,
+        allTags,
+        llmSettings,
       });
     }, 1000);
     return () => clearTimeout(handler);
-  }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, dataLoaded]);
+  }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, allTags, llmSettings, dataLoaded]);
 
   // --- Helper Functions ---
   const t = (key, params = {}) => {
@@ -126,7 +118,7 @@ const App = () => {
   const filteredTemplates = useMemo(() => {
     if (!Array.isArray(templates)) return [];
     
-    const filtered = templates.filter(t => {
+    let filtered = templates.filter(t => {
         if (!t || !t.name) return false;
         const templateName = getLocalized(t.name, language);
         const matchesSearch = !searchQuery || templateName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -134,7 +126,8 @@ const App = () => {
         return matchesSearch && matchesTags;
     });
 
-    return [...filtered].sort((a, b) => {
+    // Sort the filtered templates
+    filtered = [...filtered].sort((a, b) => {
         const nameA = getLocalized(a.name, language) || '';
         const nameB = getLocalized(b.name, language) || '';
         switch(sortOrder) {
@@ -150,6 +143,23 @@ const App = () => {
                 return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         }
     });
+
+    if (selectedTags) {
+        return { [selectedTags]: filtered };
+    }
+
+    const grouped = filtered.reduce((acc, template) => {
+        const tags = template.tags && template.tags.length > 0 ? template.tags : ['uncategorized'];
+        tags.forEach(tag => {
+            if (!acc[tag]) {
+                acc[tag] = [];
+            }
+            acc[tag].push(template);
+        });
+        return acc;
+    }, {});
+
+    return grouped;
   }, [templates, searchQuery, selectedTags, sortOrder, randomSeed, language]);
 
   // --- Action Handlers ---
@@ -346,6 +356,51 @@ const App = () => {
     handleUpdateTemplate(activeTemplate.id, { content: newContent });
     setEditedPreviewContent(null);
   };
+
+  const handleGenerate = async () => {
+    if (!llmSettings.endpoint || !llmSettings.apiKey) {
+      alert(t('llm_settings_not_configured'));
+      return;
+    }
+
+    if (!activeTemplate) return;
+
+    const content = getLocalized(activeTemplate.content, templateLanguage);
+
+    try {
+      const response = await fetch(llmSettings.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${llmSettings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo", // Or any other model
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert in analyzing prompts. Your task is to extract relevant tags and identify replaceable parts as variables from the given prompt content. Return a JSON object with two keys: 'tags' (an array of strings) and 'variables' (an array of strings).",
+            },
+            {
+              role: "user",
+              content: `Analyze the following prompt and extract tags and variables:\n\n${content}`,
+            }
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      const result = JSON.parse(data.choices[0].message.content);
+      console.log('Generated data:', result);
+      
+      // I will add the logic to update the template with the generated tags and variables later.
+      alert(`Generated Tags: ${result.tags.join(', ')}\nGenerated Variables: ${result.variables.join(', ')}`);
+
+    } catch (error) {
+      console.error('Error generating tags and variables:', error);
+      alert(t('ai_generation_failed'));
+    }
+  };
   
   if (!dataLoaded) {
       return <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center">Loading...</div>;
@@ -367,6 +422,22 @@ const App = () => {
             />
           </div>
         </>
+      )}
+      {isTagManagerOpen && (
+        <TagManager
+          tags={allTags}
+          setTags={setAllTags}
+          onClose={() => setIsTagManagerOpen(false)}
+          t={t}
+        />
+      )}
+      {isSettingsOpen && (
+        <SettingsModal
+          settings={llmSettings}
+          setSettings={setLlmSettings}
+          onClose={() => setIsSettingsOpen(false)}
+          t={t}
+        />
       )}
       <div className="flex flex-1 overflow-hidden">
         <TemplatesSidebar
@@ -401,6 +472,8 @@ const App = () => {
           setRandomSeed={setRandomSeed}
           setDiscoveryView={setDiscoveryView}
           setIsSettingsOpen={setIsSettingsOpen}
+          tags={allTags}
+          onManageTags={() => setIsTagManagerOpen(true)}
         />
         <main className="flex-1 flex flex-col relative overflow-y-auto">
            {activeTemplate ? (
@@ -423,6 +496,7 @@ const App = () => {
                  editedPreviewContent={editedPreviewContent}
                  onOverwrite={handleOverwrite}
                  onSaveAsNew={handleSaveAsNew}
+                 onGenerate={handleGenerate}
                />
                <VisualEditor
                  ref={textareaRef}
@@ -459,5 +533,3 @@ const App = () => {
     </div>
   );
 };
-
-export default App;
