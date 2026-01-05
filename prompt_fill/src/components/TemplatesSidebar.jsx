@@ -7,6 +7,7 @@ import { TagFilterDropdown } from './TagFilterDropdown';
 export const TemplatesSidebar = React.memo(({
   templates, // Now a tree structure
   activeTemplateId,
+  drafts,
   setActiveTemplateId,
   onAddTemplate,
   onDuplicateTemplate,
@@ -111,6 +112,7 @@ export const TemplatesSidebar = React.memo(({
                   // Pass down all relevant props
                   {...{
                     activeTemplateId,
+                    drafts,
                     setActiveTemplateId,
                     onRenameTemplate,
                     saveTemplateName,

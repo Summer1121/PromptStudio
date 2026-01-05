@@ -1,100 +1,106 @@
-// VisualEditor 组件 - 可视化编辑器
-import React, { useRef } from 'react';
-import { CATEGORY_STYLES } from '../constants/styles';
-import { getLocalized } from '../utils/helpers';
+import React, { useEffect, useImperativeHandle, useRef } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { TiptapVariable } from './TiptapVariable';
+import { EditorContext } from './VariableNode';
 
-export const VisualEditor = React.forwardRef(({ value, onChange, banks, categories, isEditing, onVariableClick, activeTemplate, defaults, language, onUpdate, isPickerOpening }, ref) => {
-  const preRef = useRef(null);
+// A custom extension that extends TiptapVariable to add input rules.
+// This rule finds text that matches the pattern `{{key}}` and automatically
+// converts it into our `tiptapVariable` node on the fly.
+const VariableConversion = TiptapVariable.extend({
+  addInputRules() {
+    return [
+      {
+        find: /\{\{([a-zA-Z0-9_]+)\}\}/g,
+        type: this.type,
+        getAttributes: match => ({ 'data-variable-key': match[1] }),
+      },
+    ];
+  },
+});
 
-  const handleScroll = (e) => {
-    if (preRef.current) {
-      preRef.current.scrollTop = e.target.scrollTop;
-    }
-  };
+const VisualEditor = React.forwardRef((
+  { value, onUpdate, banks, categories, onVariableClick, activeTemplate, defaults, language }, 
+  ref
+) => {
+  const isUpdatingFromOutside = useRef(false);
 
-  const handleInput = (e) => {
-    if (isPickerOpening && isPickerOpening.current) {
-      // Input might be caused by variable picker, so ignore it for now
-      return;
-    }
-    if (onUpdate) {
-      onUpdate(e.currentTarget.textContent);
-    }
-  };
-
-  const renderHighlights = (text) => {
-    if (!text || typeof text !== 'string') return null;
-    const parts = text.split(/(\{\{[^{}\n]+\}\})/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('{{') && part.endsWith('}}')) {
-        const key = part.slice(2, -2).trim();
-        const bank = banks[key];
-        const categoryId = bank?.category || 'other';
-        const colorKey = categories[categoryId]?.color || 'slate';
-        const style = CATEGORY_STYLES[colorKey];
-
-        if (isEditing) {
-          return (
-            <button
-              key={i}
-              onClick={(e) => onVariableClick && onVariableClick(key, e)}
-              className={`${style.bg} ${style.text} font-bold rounded-sm cursor-pointer`}
-            >
-              {part}
-            </button>
-          );
-        } else {
-          const selectionKey = `${activeTemplate.id}-${key}-${i}`;
-          const selectionIndex = activeTemplate.selections?.[selectionKey];
-          let content = part;
-
-          if (selectionIndex !== undefined && bank) {
-            content = getLocalized(bank.options[selectionIndex], language);
-          }
-          
-          return (
-            <button
-              key={i}
-              onClick={(e) => onVariableClick && onVariableClick(key, e, i)}
-              className={`${style.bg} ${style.text} font-bold rounded-sm cursor-pointer`}
-            >
-              {content}
-            </button>
-          );
+  // Function to serialize the editor's document state back to a plain text string.
+  const serializeStateToString = (state) => {
+    let text = '';
+    state.doc.forEach(node => {
+      node.content.forEach(child => {
+        if (child.type.name === 'text') {
+          text += child.text;
+        } else if (child.type.name === 'tiptapVariable') {
+          text += `{{${child.attrs['data-variable-key']}}}`;
         }
+      });
+      // Add a newline for each paragraph, except for the last one.
+      if (node.isBlock && state.doc.content.lastChild !== node) {
+         text += '\n';
       }
-      return <span key={i}>{part}</span>;
     });
+    return text;
+  };
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // Disable default key mappings that might interfere
+        history: false, // We'll manage history at the app level if needed
+      }),
+      VariableConversion, // Use our extended version with input rules
+    ],
+    content: value, // Initial content
+    editorProps: {
+      attributes: {
+        class: 'p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words focus:outline-none w-full h-full',
+        spellcheck: 'false',
+      },
+    },
+    onUpdate: ({ editor }) => {
+      if (isUpdatingFromOutside.current) return;
+      const newTextValue = serializeStateToString(editor.state);
+      if (onUpdate) {
+        onUpdate(newTextValue);
+      }
+    },
+  });
+
+  // Effect to sync editor content when the `value` prop changes from the outside.
+  useEffect(() => {
+    if (editor && value !== serializeStateToString(editor.state)) {
+      isUpdatingFromOutside.current = true;
+      editor.commands.setContent(value, false); // `false` to not emit an update
+      isUpdatingFromOutside.current = false;
+    }
+  }, [value, editor]);
+
+  // Expose an imperative handle to the parent component.
+  // This allows the parent to call `insertVariable` directly on the editor instance.
+  useImperativeHandle(ref, () => ({
+    insertVariable: (key) => {
+      if (editor) {
+        // Insert the variable as text, which will be automatically converted by our input rule.
+        editor.chain().focus().insertContent(`{{${key}}}`).run();
+      }
+    },
+  }), [editor]);
+  
+  const editorContextValue = {
+    banks, categories, activeTemplate, language, onVariableClick, defaults,
   };
 
   return (
-    <div className="relative w-full h-full overflow-y-auto bg-gray-50">
-      {/* Backdrop */}
-              <pre
-                ref={preRef}
-                className={`absolute inset-0 p-8 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words m-0 ${isEditing ? 'text-transparent pointer-events-none' : 'text-gray-800 pointer-events-auto'}`}
-                style={{ fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }} 
-                contentEditable={!isEditing}
-                suppressContentEditableWarning={true}
-                onInput={handleInput}
-                aria-hidden="true"
-              >        {renderHighlights(value)}
-        <br />
-      </pre>
-
-      {/* Textarea */}
-      <textarea
-        ref={ref}
-        value={value}
-        onChange={onChange}
-        onScroll={handleScroll}
-        readOnly={!isEditing}
-        className={`absolute inset-0 w-full h-full p-8 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words bg-transparent caret-gray-800 resize-none focus:outline-none overflow-auto z-10 m-0 selection:bg-orange-200 selection:text-orange-900 ${isEditing ? 'text-gray-800 pointer-events-auto' : 'text-transparent pointer-events-none'}`}
-        style={{ fontFamily: 'Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}
-        spellCheck={false}
-      />
-    </div>
+    <EditorContext.Provider value={editorContextValue}>
+      <div className="relative w-full h-full overflow-y-auto custom-scrollbar">
+        <EditorContent editor={editor} />
+      </div>
+    </EditorContext.Provider>
   );
 });
 
 VisualEditor.displayName = 'VisualEditor';
+
+export { VisualEditor };

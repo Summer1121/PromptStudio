@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { confirm, message } from '@tauri-apps/plugin-dialog';
-import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor } from './components';
+import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
 import { SettingsModal } from './components/SettingsModal';
+import { DiffView } from './components/DiffView';
 import { readDataFile, writeDataFile } from './services/tauri-service';
 import { getLocalized } from './utils/helpers';
 import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAG_TREE } from './data/templates';
@@ -33,10 +34,10 @@ const App = () => {
   
   // --- UI & Control State ---
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDiscoveryView, setDiscoveryView] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+  const [isDiffViewOpen, setIsDiffViewOpen] = useState(false);
   
   // Sidebar filtering/sorting state
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,6 +47,8 @@ const App = () => {
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [openDirectories, setOpenDirectories] = useState(null); // null: initial state, all open. {}: collapsed.
 
+  const editorRef = useRef(null);
+
   const isOpenDirectory = (path) => {
     if (openDirectories === null) return true; // Default to all open initially
     return openDirectories[path] ?? false; // After first interaction, default to closed
@@ -53,7 +56,7 @@ const App = () => {
 
   const toggleDirectory = (path) => {
     const newOpenState = openDirectories === null 
-      ? flatTags.reduce((acc, p) => ({ ...acc, [p]: true }), {}) 
+      ? flatTags.reduce((acc, p) => ({ ...acc, [p]: true }), {})
       : openDirectories;
       
     setOpenDirectories({
@@ -85,13 +88,18 @@ const App = () => {
     y: 0,
     options: [], // This will be allTags
   });
-  const [editedPreviewContent, setEditedPreviewContent] = useState(null);
-  const [originalContentForDirtyCheck, setOriginalContentForDirtyCheck] = useState(null);
+  const [historyMenuState, setHistoryMenuState] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
+  const [drafts, setDrafts] = useState({}); // Stores draft content for each template ID
+  const [historyDiffTarget, setHistoryDiffTarget] = useState(null);
   const isPickerOpening = useRef(false);
+  const keepDraftOnNextSwitch = useRef(false);
   
   const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileTab, setMobileTab] = useState(isMobileDevice ? "home" : "editor");
-  const textareaRef = useRef(null);
 
   const startResizing = useCallback(() => {
     setIsResizing(true);
@@ -125,54 +133,23 @@ const App = () => {
       const savedData = await readDataFile();
       if (savedData && savedData.templates && savedData.templates.length > 0) {
         
-        // --- Data Migration Logic ---
-        // 1. Build a lookup map for leaf nodes to their full paths
-        const leafToFullPathMap = {};
-        const buildMap = (nodes, prefix) => {
-          nodes.forEach(node => {
-            const path = prefix ? `${prefix}/${node.name}` : node.name;
-            // Only map the leaf node name if it's a child, to avoid ambiguity
-            if (prefix) {
-              leafToFullPathMap[node.name] = path;
-            }
-            if (node.children?.length > 0) {
-              buildMap(node.children, path);
-            }
-          });
-        };
-        buildMap(TEMPLATE_TAG_TREE, '');
-
-        // 2. Map over templates to migrate them
         const migratedTemplates = savedData.templates.map(t => {
-          let currentTags = t.tags;
+          const newTemplate = { ...t };
+          if (t.tagPath && !t.tags) {
+            newTemplate.tags = [t.tagPath];
+          }
+          delete newTemplate.tagPath;
 
-          // A. Migrate from old tagPath string to tags array if necessary
-          if (t.tagPath && !currentTags) {
-            currentTags = [t.tagPath];
+          if (newTemplate.version === undefined) {
+            newTemplate.version = 1;
+            newTemplate.history = [];
           }
 
-          let tagsUpdated = false;
-          if (currentTags && Array.isArray(currentTags)) {
-            // B. Fix leaf-only tags by replacing them with full paths
-            const correctedTags = currentTags.map(tag => {
-              if (tag && !tag.includes('/') && leafToFullPathMap[tag]) {
-                tagsUpdated = true;
-                return leafToFullPathMap[tag];
-              }
-              return tag;
-            });
-            
-            if (tagsUpdated) {
-              // C. Deduplicate tags after correction
-              currentTags = [...new Set(correctedTags)];
-            }
+          if (newTemplate.notes === undefined) {
+            newTemplate.notes = "";
           }
-
-          const newTemplate = { ...t, tags: currentTags || [] };
-          delete newTemplate.tagPath; // Ensure old property is always removed
           return newTemplate;
         });
-        // --- End of Migration Logic ---
 
         setTemplates(migratedTemplates);
         setBanks(savedData.banks || INITIAL_BANKS);
@@ -216,16 +193,55 @@ const App = () => {
   }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, tagTree, llmSettings, dataLoaded]);
 
   useEffect(() => {
-    setEditedPreviewContent(null);
-    setOriginalContentForDirtyCheck(null);
+    if (keepDraftOnNextSwitch.current) {
+        keepDraftOnNextSwitch.current = false;
+        return;
+    }
+    // No longer clearing drafts on switch
   }, [activeTemplateId]);
 
-  // --- Helper Functions ---
-  const t = (key, params = {}) => {
-    let str = TRANSLATIONS[language]?.[key] || key;
-    Object.keys(params).forEach(k => { str = str.replace(`{{${k}}}`, params[k]); });
-    return str;
-  };
+    const handleRestoreVersion = (historyEntry) => {
+      if (!activeTemplate) return;
+      const newHistoryEntry = {
+        content: activeTemplate.content,
+        version: activeTemplate.version,
+        createdAt: activeTemplate.updatedAt || activeTemplate.createdAt,
+      };
+      const newHistory = [newHistoryEntry, ...(activeTemplate.history || [])];
+      handleUpdateTemplate(activeTemplate.id, {
+        content: historyEntry.content,
+        version: (activeTemplate.version || 1) + 1,
+        history: newHistory,
+      });
+      setDrafts(prev => {
+        const newDrafts = { ...prev };
+        delete newDrafts[activeTemplateId];
+        return newDrafts;
+      });
+    };
+  
+    const onOpenHistory = (rect) => {
+      setHistoryMenuState({
+        visible: true,
+        x: rect.left,
+        y: rect.bottom,
+      });
+    };
+  
+      const onCloseHistory = () => {
+        setHistoryMenuState({ ...historyMenuState, visible: false });
+      };
+  
+      const handleViewHistoryDiff = (historyEntry) => {
+        setHistoryDiffTarget(historyEntry);
+        setIsDiffViewOpen(true);
+      };
+  
+      const t = (key, params = {}) => {
+        let str = TRANSLATIONS[language]?.[key] || key;
+        Object.keys(params).forEach(k => { str = str.replace(`{{${k}}}`, params[k]); });
+        return str;
+      };
   
   const displayTag = React.useCallback((tag) => {
     return TAG_LABELS[language]?.[tag] || tag;
@@ -237,9 +253,10 @@ const App = () => {
       if (!Array.isArray(nodes)) return paths;
       nodes.forEach(node => {
         const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
-        paths.push(currentPath);
         if (node.children && node.children.length > 0) {
           paths = paths.concat(flatten(node.children, currentPath));
+        } else {
+          paths.push(currentPath);
         }
       });
       return paths;
@@ -247,18 +264,19 @@ const App = () => {
     return flatten(tagTree || []);
   }, [tagTree]);
 
-  // --- Derived State ---
   const activeTemplate = useMemo(() => {
       if (!activeTemplateId || !Array.isArray(templates) || templates.length === 0) return null;
       return templates.find(t => t.id === activeTemplateId);
   }, [templates, activeTemplateId]);
 
-  const isDirty = originalContentForDirtyCheck && activeTemplate && JSON.stringify(activeTemplate.content) !== JSON.stringify(originalContentForDirtyCheck);
+  const isDraft = useMemo(() => {
+    const draftContent = drafts[activeTemplateId];
+    if (!activeTemplate || draftContent === undefined) return false;
+    return draftContent !== getLocalized(activeTemplate.content, templateLanguage);
+  }, [activeTemplate, drafts, templateLanguage]);
   
   const filteredTemplates = useMemo(() => {
     let processedTemplates = [...templates];
-
-    // 1. Filter by search query
     if (searchQuery) {
       processedTemplates = processedTemplates.filter(t => {
         if (!t || !t.name) return false;
@@ -266,16 +284,12 @@ const App = () => {
         return templateName.toLowerCase().includes(searchQuery.toLowerCase());
       });
     }
-
-    // 2. Filter by selected tag paths from the filter dropdown
     if (selectedTags.length > 0) {
       processedTemplates = processedTemplates.filter(t => {
         if (!t.tags || t.tags.length === 0) return false;
         return t.tags.some(templateTag => selectedTags.some(filterTag => templateTag.startsWith(filterTag)));
       });
     }
-
-    // 3. Sort the filtered templates
     processedTemplates.sort((a, b) => {
         const nameA = getLocalized(a.name, language) || '';
         const nameB = getLocalized(b.name, language) || '';
@@ -290,8 +304,6 @@ const App = () => {
             case 'newest': default: return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         }
     });
-
-    // 4. Group into a tree structure based on the `tags` array
     const tree = {};
     processedTemplates.forEach(template => {
       const paths = template.tags && template.tags.length > 0 ? template.tags : ['uncategorized'];
@@ -303,10 +315,8 @@ const App = () => {
           }
           return;
         }
-
         const parts = path.split('/');
         let parentNode = tree;
-        // Traverse to find the parent of the leaf
         for (let i = 0; i < parts.length - 1; i++) {
           const part = parts[i];
           if (!parentNode[part]) {
@@ -314,8 +324,6 @@ const App = () => {
           }
           parentNode = parentNode[part].children;
         }
-        
-        // Add template to the leaf node
         const leafName = parts[parts.length - 1];
         if (!parentNode[leafName]) {
           parentNode[leafName] = { children: {}, templates: [] };
@@ -328,10 +336,9 @@ const App = () => {
     return tree;
   }, [templates, searchQuery, selectedTags, sortOrder, randomSeed, language]);
 
-  // --- Action Handlers ---
   const handleAddTemplate = () => {
     const newId = `tpl_${Date.now()}`;
-    const newTemplate = { id: newId, name: t('new_template_name'), author: "Me", content: t('new_template_content'), selections: {}, tags: [], createdAt: new Date().toISOString() };
+    const newTemplate = { id: newId, name: t('new_template_name'), author: "Me", content: t('new_template_content'), selections: {}, tags: [], createdAt: new Date().toISOString(), notes: "", version: 1, history: [] };
     setTemplates(prev => [newTemplate, ...prev]);
     setActiveTemplateId(newId);
   };
@@ -345,7 +352,7 @@ const App = () => {
       Object.keys(newName).forEach(lang => { newName[lang] = `${newName[lang]}${t('copy_suffix') || ' (Copy)'}` });
       return newName;
     };
-    const newTemplate = { ...templateToCopy, id: newId, name: duplicateName(templateToCopy.name), createdAt: new Date().toISOString() };
+    const newTemplate = { ...templateToCopy, id: newId, name: duplicateName(templateToCopy.name), createdAt: new Date().toISOString(), version: 1, history: [] };
     setTemplates(prev => [newTemplate, ...prev]);
     setActiveTemplateId(newId);
   };
@@ -354,7 +361,7 @@ const App = () => {
     if (e) e.stopPropagation();
     
     const confirmed = await confirm(t('confirm_delete_template'), { 
-      title: t('confirm_delete_title') || 'Confirm Deletion', 
+      title: t('confirm_delete_title') || 'Confirm Deletion',
       type: 'warning' 
     });
 
@@ -392,27 +399,15 @@ const App = () => {
   };
 
   const insertVariableToTemplate = (key) => {
-    if (!activeTemplate) return;
-    const textarea = document.querySelector('#prompt-editor-textarea');
-    if (!textarea) return;
-    const textToInsert = ` {{${key}}} `;
-    const { selectionStart, selectionEnd, value } = textarea;
-    const updatedText = `${value.substring(0, selectionStart)}${textToInsert}${value.substring(selectionEnd)}`;
-    const newContent = typeof activeTemplate.content === 'object'
-      ? { ...activeTemplate.content, [templateLanguage]: updatedText }
-      : updatedText;
-    handleUpdateTemplate(activeTemplate.id, { content: newContent });
-    setTimeout(() => {
-      textarea.focus();
-      const newPos = selectionStart + textToInsert.length;
-      textarea.setSelectionRange(newPos, newPos);
-    }, 0);
+    if (editorRef.current) {
+      editorRef.current.insertVariable(key);
+    }
   };
 
   const handleCopy = () => {
     if (!activeTemplate) return;
-
-    const parts = getLocalized(activeTemplate.content, templateLanguage).split(/(\{\{[^\}\n]+\}\})/g);
+    const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+    const parts = content.split(/(\s*\{\{[^\}\n]+\}\}\s*)/g);
     const finalContent = parts.map((part, i) => {
       if (part.startsWith('{{') && part.endsWith('}}')) {
         const key = part.slice(2, -2).trim();
@@ -422,7 +417,7 @@ const App = () => {
         if (selectionIndex !== undefined && banks[bankKey]) {
           return getLocalized(banks[bankKey].options[selectionIndex], language);
         }
-        return part; // Keep placeholder if not found
+        return part; 
       }
       return part;
     }).join('');
@@ -471,7 +466,7 @@ const App = () => {
       visible: true,
       x: rect.left,
       y: rect.bottom,
-      options: flatTags, // Use flatTags for options
+      options: flatTags, 
     });
   };
 
@@ -480,54 +475,77 @@ const App = () => {
   };
 
   const handleSaveAsNew = () => {
-    let contentToSave;
-    if (editedPreviewContent) {
-      // Logic for saving from edited preview
-      let newContent = editedPreviewContent;
-      const valueToPlaceholderMap = {};
-      Object.entries(banks).forEach(([bankKey, bank]) => {
-        bank.options.forEach((option) => {
-          const value = getLocalized(option, language);
-          valueToPlaceholderMap[value] = `{{${bankKey}}}`;
-        });
-      });
-      Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
-        newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
-      });
-      contentToSave = newContent;
-    } else {
-      // Logic for saving from dirty content state
-      contentToSave = activeTemplate.content;
-    }
+    if (!activeTemplate) return;
+    const contentToSave = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
 
     const newId = `tpl_${Date.now()}`;
-    const newName = `${getLocalized(activeTemplate.name, language)} (Edited)`;
-    const newTemplate = { ...activeTemplate, id: newId, name: newName, content: contentToSave, createdAt: new Date().toISOString() };
+    const newName = (name => {
+      const suffix = t('copy_suffix') || ' (Copy)';
+      if (typeof name === 'object') {
+        const newNameObj = { ...name };
+        Object.keys(newNameObj).forEach(lang => { newNameObj[lang] = `${newNameObj[lang]}${suffix}` });
+        return newNameObj;
+      }
+      return `${name}${suffix}`;
+    })(activeTemplate.name);
+
+    const newTemplate = { 
+      ...activeTemplate, 
+      id: newId, 
+      name: newName, 
+      content: contentToSave, 
+      createdAt: new Date().toISOString(),
+      notes: activeTemplate.notes,
+      version: 1, 
+      history: []
+    };
     
     setTemplates(prev => [newTemplate, ...prev]);
+    
+    keepDraftOnNextSwitch.current = true;
     setActiveTemplateId(newId);
-    setOriginalContentForDirtyCheck(null);
-    setEditedPreviewContent(null);
   };
 
-  const handleOverwrite = () => {
-    if (editedPreviewContent) {
-      let newContent = editedPreviewContent;
-      const valueToPlaceholderMap = {};
-      Object.entries(banks).forEach(([bankKey, bank]) => {
-        bank.options.forEach((option) => {
-          const value = getLocalized(option, language);
-          valueToPlaceholderMap[value] = `{{${bankKey}}}`;
-        });
-      });
-      Object.entries(valueToPlaceholderMap).forEach(([value, placeholder]) => {
-        newContent = newContent.replace(new RegExp(value, 'g'), placeholder);
-      });
-      handleUpdateTemplate(activeTemplate.id, { content: newContent });
+  const handleApplyDraft = () => {
+    const draftContent = drafts[activeTemplateId];
+    if (!activeTemplate || draftContent === undefined) return;
+
+    const currentTemplate = templates.find(t => t.id === activeTemplateId);
+    if (!currentTemplate) return;
+
+    const historyEntry = {
+      content: currentTemplate.content,
+      version: currentTemplate.version,
+      createdAt: currentTemplate.updatedAt || currentTemplate.createdAt,
+    };
+    
+    const newHistory = [historyEntry, ...(currentTemplate.history || [])];
+
+    handleUpdateTemplate(activeTemplate.id, { 
+      content: draftContent,
+      version: (currentTemplate.version || 1) + 1,
+      history: newHistory,
+    });
+    
+    setDrafts(prev => {
+      const newDrafts = { ...prev };
+      delete newDrafts[activeTemplateId];
+      return newDrafts;
+    });
+  };
+  
+  const handleResetDraft = () => {
+    setDrafts(prev => {
+      const newDrafts = { ...prev };
+      delete newDrafts[activeTemplateId];
+      return newDrafts;
+    });
+  };
+
+  const onSaveNotes = (notesContent) => {
+    if (activeTemplate) {
+      handleUpdateTemplate(activeTemplate.id, { notes: notesContent });
     }
-    // For both cases (preview edit or content edit), clear the dirty states
-    setOriginalContentForDirtyCheck(null);
-    setEditedPreviewContent(null);
   };
 
   const handleGenerate = async () => {
@@ -538,7 +556,7 @@ const App = () => {
 
     if (!activeTemplate) return;
 
-    const content = getLocalized(activeTemplate.content, templateLanguage);
+    const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
 
     try {
       const response = await fetch(llmSettings.endpoint, {
@@ -616,14 +634,47 @@ const App = () => {
                       handleUpdateTemplate(activeTemplate.id, { tags: newTags });
                       onCloseTagMenu();
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center justify-between ${
-                      (activeTemplate.tags || []).includes(path) ? 'text-orange-600 font-semibold' : 'text-gray-700'
-                    }`}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center justify-between ${ (activeTemplate.tags || []).includes(path) ? 'text-orange-600 font-semibold' : 'text-gray-700'}`}
                   >
                     <span>{path}</span>
                     {(activeTemplate.tags || []).includes(path) && <Check size={14} />}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {historyMenuState.visible && activeTemplate && (
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={onCloseHistory}
+          />
+          <div style={{ position: 'fixed', top: historyMenuState.y, left: historyMenuState.x, zIndex: 50 }}>
+            <div className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[220px] z-[100]">
+              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b">{t('version_history')}</div>
+              <div className="max-h-60 overflow-y-auto">
+                {(activeTemplate.history || []).length > 0 ? (
+                  activeTemplate.history.map(h => (
+                    <div key={h.version} className="flex items-center justify-between px-4 py-2 text-sm text-gray-700">
+                      <div>
+                        <span className="font-bold">v{h.version}</span>
+                        <span className="text-xs text-gray-400 ml-2">{new Date(h.createdAt).toLocaleString()}</span>
+                      </div>
+                                            <button 
+                                              onClick={() => {
+                                                handleViewHistoryDiff(h);
+                                                onCloseHistory();
+                                              }}
+                                              className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-yellow-100 hover:text-yellow-600 transition-colors"
+                                            >
+                                              {t('diff')}
+                                            </button>                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-xs text-gray-400">{t('no_history')}</div>
+                )}
               </div>
             </div>
           </div>
@@ -645,11 +696,38 @@ const App = () => {
           t={t}
         />
       )}
+      {isDiffViewOpen && activeTemplate && (
+        <DiffView
+          isHistoryDiff={!!historyDiffTarget}
+          originalContent={historyDiffTarget ? historyDiffTarget.content : getLocalized(activeTemplate.content, templateLanguage)}
+          newContent={historyDiffTarget ? getLocalized(activeTemplate.content, templateLanguage) : drafts[activeTemplate.id]}
+          onClose={() => {
+            setIsDiffViewOpen(false);
+            setHistoryDiffTarget(null);
+          }}
+          onReset={() => {
+            handleResetDraft();
+            setIsDiffViewOpen(false);
+            setHistoryDiffTarget(null);
+          }}
+          onApply={() => {
+            if (historyDiffTarget) {
+              handleRestoreVersion(historyDiffTarget);
+            } else {
+              handleApplyDraft();
+            }
+            setIsDiffViewOpen(false);
+            setHistoryDiffTarget(null);
+          }}
+          t={t}
+        />
+      )}
       <div className="flex flex-1 overflow-hidden">
         <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
           <TemplatesSidebar
             templates={filteredTemplates}
             activeTemplateId={activeTemplateId}
+            drafts={drafts}
             setActiveTemplateId={setActiveTemplateId}
             onAddTemplate={handleAddTemplate}
             onDuplicateTemplate={handleDuplicateTemplate}
@@ -662,8 +740,6 @@ const App = () => {
             setTempTemplateName={setTempTemplateName}
             tempTemplateAuthor={tempTemplateAuthor}
             setTempTemplateAuthor={setTempTemplateAuthor}
-            handleResetTemplate={() => alert('Reset not implemented yet')}
-            handleExportTemplate={() => alert('Export not implemented yet')}
             language={language}
             setLanguage={setLanguage}
             t={t}
@@ -687,51 +763,44 @@ const App = () => {
           />
         </div>
         <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200"/>
-        <main className="flex-1 flex flex-col relative overflow-y-auto z-10">
+        <main className="flex-1 flex flex-col relative overflow-hidden z-10">
            {activeTemplate ? (
              <>
                <EditorToolbar
                  activeTemplate={activeTemplate}
                  onCopy={handleCopy}
                  copied={copied}
-                 isEditing={isEditing}
-                 setIsEditing={(editing) => {
-                    setIsEditing(editing);
-                    if (editing && activeTemplate) {
-                      setOriginalContentForDirtyCheck(activeTemplate.content);
-                    }
-                  }}
-                 isDirty={isDirty}
-                 editedPreviewContent={editedPreviewContent}
+                 isDraft={isDraft}
                  t={t}
                  language={language}
-                 onOverwrite={handleOverwrite}
                  onSaveAsNew={handleSaveAsNew}
                  onGenerate={handleGenerate}
-                 allTags={flatTags}
                  onUpdateTemplate={handleUpdateTemplate}
                  onOpenTagMenu={onOpenTagMenu}
                  onCloseTagMenu={onCloseTagMenu}
+                 onOpenHistory={onOpenHistory}
+                 onCloseHistory={onCloseHistory}
+                 onRestoreVersion={handleRestoreVersion}
+                 onOpenDiff={() => setIsDiffViewOpen(true)}
                />
-               <VisualEditor
-                 ref={textareaRef}
-                 key={activeTemplate.id}
-                 value={getLocalized(activeTemplate.content, templateLanguage)}
-                 onChange={(e) => {
-                    const newContent = typeof activeTemplate.content === 'object'
-                        ? { ...activeTemplate.content, [templateLanguage]: e.target.value }
-                        : e.target.value;
-                    handleUpdateTemplate(activeTemplate.id, { content: newContent });
-                 }}
-                 banks={banks}
-                 categories={categories}
-                 isEditing={isEditing}
-                 onVariableClick={handleVariableClick}
-                 activeTemplate={activeTemplate}
-                 defaults={defaults}
-                 language={language}
-                 onUpdate={setEditedPreviewContent}
-                 isPickerOpening={isPickerOpening}
+               <div className="flex-grow">
+                 <VisualEditor
+                   ref={editorRef}
+                   key={activeTemplate.id}
+                   value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
+                   banks={banks}
+                   categories={categories}
+                   onVariableClick={handleVariableClick}
+                   activeTemplate={activeTemplate}
+                   defaults={defaults}
+                   language={language}
+                   onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
+                 />
+               </div>
+               <NotesEditor 
+                 notes={activeTemplate.notes}
+                 onSaveNotes={onSaveNotes}
+                 t={t}
                />
              </>
            ) : (

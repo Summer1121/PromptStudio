@@ -19,6 +19,7 @@
     "@tauri-apps/plugin-dialog": "^2.4.2",
     "@tiptap/react": "^3.14.0",
     "@tiptap/starter-kit": "^3.14.0",
+    "diff": "^8.0.2",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",

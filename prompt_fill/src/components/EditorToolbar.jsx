@@ -1,26 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Copy, Edit3, Check, Sparkles, Tag } from 'lucide-react';
+import React, { useRef } from 'react';
+import { FileText, Copy, Check, Tag, GitCompareArrows, History } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 
 export const EditorToolbar = React.memo(({
   activeTemplate,
   onCopy,
   copied,
-  isEditing,
-  setIsEditing,
-  isDirty,
+  isDraft,
   t,
   language,
-  editedPreviewContent,
   onSaveAsNew,
-  onOverwrite,
   onGenerate,
-  allTags,
   onUpdateTemplate,
   onOpenTagMenu,
-  onCloseTagMenu,
+  onOpenHistory,
+  onOpenDiff,
 }) => {
   const tagButtonRef = useRef(null);
+  const historyButtonRef = useRef(null);
 
   if (!activeTemplate) {
     return (
@@ -54,13 +51,14 @@ export const EditorToolbar = React.memo(({
       </div>
 
       <div className="flex items-center gap-3">
-        {(isDirty || editedPreviewContent) && (
+        {isDraft && (
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={onOverwrite}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-blue-500 text-white hover:bg-blue-600"
+              onClick={onOpenDiff}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-yellow-500 text-white hover:bg-yellow-600"
             >
-              {t('overwrite_template')}
+              <GitCompareArrows size={16} />
+              {t('diff')}
             </button>
             <button
               onClick={onSaveAsNew}
@@ -71,6 +69,17 @@ export const EditorToolbar = React.memo(({
           </div>
         )}
         
+        <div className="relative">
+          <button
+            ref={historyButtonRef}
+            onClick={(e) => onOpenHistory(e.currentTarget.getBoundingClientRect())}
+            className="px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-gray-100 text-gray-600 hover:bg-gray-200"
+          >
+            <History size={14} />
+            v{activeTemplate.version || 1}
+          </button>
+        </div>
+
         <div className="relative">
           <button
             ref={tagButtonRef}
@@ -91,17 +100,6 @@ export const EditorToolbar = React.memo(({
         >
           {copied ? <Check size={16} /> : <Copy size={16} />}
           {copied ? t('copied') : t('copy')}
-        </button>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${
-            isEditing
-              ? 'bg-orange-500 text-white border-orange-500'
-              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-          }`}
-        >
-          {isEditing ? <Check size={16} /> : <Edit3 size={16} />}
-          {isEditing ? t('done') : t('edit')}
         </button>
       </div>
     </div>

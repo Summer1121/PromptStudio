@@ -622,7 +622,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
     author: "官方",
     selections: {},
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_photo_grid",
@@ -652,7 +655,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "lens_param-8": { cn: "85mm, f/2.2", en: "85mm, f/2.2" }
     },
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_fashion",
@@ -662,7 +668,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
     author: "官方",
     selections: {},
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_character_selfie",
@@ -672,7 +681,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
     author: "官方",
     selections: {},
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_classic_scene",
@@ -686,7 +698,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "position": { cn: "顶部中央", en: "Top Center" }
     },
     tags: ['风格/卡通'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_corporate_growth",
@@ -700,7 +715,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
     tags: ['主题/建筑'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_fisheye_urban",
@@ -727,7 +745,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "render_style": { cn: "高质量的 2D 插画风格", en: "High-quality 2D illustration style" }
     },
     tags: ['风格/摄影'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_detective_social",
@@ -741,7 +762,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "9:16竖构图", en: "9:16 Vertical" }
     },
     tags: ['用途/创意'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_magazine_cover",
@@ -758,7 +782,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "9:16竖构图", en: "9:16 Vertical" }
     },
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_manga_reality",
@@ -772,7 +799,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "9:16竖构图", en: "9:16 Vertical" }
     },
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_industrial_design",
@@ -786,7 +816,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
     tags: ['主题/产品'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_photo_grid_v2",
@@ -816,7 +849,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "lens_param-8": { cn: "85mm, f/2.2", en: "85mm, f/2.2" }
     },
     tags: ['主题/人物'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_raindrop_art",
@@ -829,7 +865,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
     tags: ['风格/摄影'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_art_growth",
@@ -843,7 +882,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
     tags: ['主题/建筑'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_miniature_desk",
@@ -858,6 +900,9 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "4:3横构图", en: "4:3 Horizontal" }
     },
     tags: ['风格/卡通'],
-    language: ["cn", "en"]
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   }
 ];

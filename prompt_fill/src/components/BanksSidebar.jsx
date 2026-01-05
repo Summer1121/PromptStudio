@@ -120,6 +120,7 @@ const BankGroup = ({ bankKey, bank, onInsert, onDeleteOption, onAddOption, onDel
                 <div 
                     className="flex justify-between items-start p-3.5 cursor-pointer hover:bg-gradient-to-br hover:from-gray-50/80 hover:to-white transition-all duration-200"
                     onClick={() => setIsCollapsed(!isCollapsed)}
+                    onMouseDown={(e) => e.preventDefault()} // Prevent editor from losing focus
                 >
                     <div className="flex items-start gap-2.5 overflow-hidden flex-1 pr-2">
                         <div className="mt-0.5 flex-shrink-0 text-gray-400 group-hover/card:text-gray-600 transition-all duration-200 group-hover/card:scale-110">
@@ -133,6 +134,7 @@ const BankGroup = ({ bankKey, bank, onInsert, onDeleteOption, onAddOption, onDel
                     <div className="flex gap-1.5 items-center">
                         <button 
                             onClick={(e) => { e.stopPropagation(); onInsert(bankKey); }}
+                            onMouseDown={(e) => e.preventDefault()} // Prevent editor from losing focus
                             title={t('insert')}
                             className="p-2 bg-white rounded-lg border border-gray-100 hover:border-orange-300 text-gray-400 hover:text-orange-600 hover:bg-gradient-to-br hover:from-orange-50 hover:to-orange-100/50 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1.5 group/insert"
                         >
