@@ -57,12 +57,12 @@ export const CATEGORY_STYLES = {
     inputRing: "focus:ring-violet-200", inputBorder: "focus:border-violet-500"
   },
   slate: {
-    text: "text-slate-600", bg: "bg-slate-50", border: "border-slate-200",
-    hoverBg: "hover:bg-slate-100", hoverBorder: "hover:border-slate-300", hoverText: "hover:text-slate-600",
-    ring: "ring-slate-300", bgActive: "bg-slate-100",
-    badgeText: "text-slate-700", badgeBg: "bg-slate-100",
-    dotBg: "bg-slate-500", btnBg: "bg-slate-600",
-    inputRing: "focus:ring-slate-200", inputBorder: "focus:border-slate-500"
+    text: "text-gray-700", bg: "bg-gray-100", border: "border-gray-200",
+    hoverBg: "hover:bg-gray-200", hoverBorder: "hover:border-gray-300", hoverText: "hover:text-gray-800",
+    ring: "ring-gray-300", bgActive: "bg-gray-200",
+    badgeText: "text-gray-800", badgeBg: "bg-gray-200",
+    dotBg: "bg-gray-500", btnBg: "bg-gray-700",
+    inputRing: "focus:ring-gray-300", inputBorder: "focus:border-gray-500"
   },
   orange: {
     text: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200",

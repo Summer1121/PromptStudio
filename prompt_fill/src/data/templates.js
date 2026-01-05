@@ -6,7 +6,7 @@
  * @property {string} imageUrl - 预览缩略图 URL
  * @property {string[]} [imageUrls] - 多图预览数组
  * @property {Object.<string, string|Object>} selections - 默认选中的变量值 map，支持双语对象或字符串
- * @property {string[]} tags - 模板标签数组，可选值：建筑、人物、摄影、产品、图表、卡通、宠物、游戏、创意
+ * @property {string} tagPath - 模板标签路径
  * @property {string|string[]} language - 模板语言，可选值：
  *   - 'cn' - 仅支持中文
  *   - 'en' - 仅支持英文
@@ -573,19 +573,34 @@ Outside the window, a real {{character_name}} is curiously looking inside at the
 {{ratio}}`
 };
 
+
+
 /**
- * 可用的模板标签
+ * 可用的模板标签（树状结构）
  */
-export const TEMPLATE_TAGS = [
-  "建筑",
-  "人物",
-  "摄影",
-  "产品",
-  "图表",
-  "卡通",
-  "宠物",
-  "游戏",
-  "创意"
+export const TEMPLATE_TAG_TREE = [
+  { name: '主题', children: [
+    { name: '人物', children: [] },
+    { name: '建筑', children: [] },
+    { name: '产品', children: [] },
+    { name: '宠物', children: [] },
+  ]},
+  { name: '风格', children: [
+    { name: '摄影', children: [] },
+    { name: '卡通', children: [] },
+    { name: '游戏', children: [] },
+  ]},
+  { name: '用途', children: [
+    { name: '图表', children: [] },
+    { name: '创意', children: [] },
+  ]},
+  { name: 'AIGC类型', children: [
+    { name: '文生图', children: [] },
+    { name: '图生图', children: [] },
+    { name: '图生文', children: [] },
+    { name: '文生视频', children: [] },
+    { name: '图生视频', children: [] },
+  ]},
 ];
 
 /**
@@ -596,7 +611,7 @@ export const TEMPLATE_TAGS = [
  * 2. 在数组中添加一个新的配置对象
  * 3. 确保 id 唯一
  * 4. imageUrl 可以是外部链接，也可以是项目内的 import 资源
- * 5. tags 可以从 TEMPLATE_TAGS 中选择
+ * 5. tagPath 表示其在目录树中的位置
  */
 export const INITIAL_TEMPLATES_CONFIG = [
   {
@@ -606,8 +621,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
     imageUrl: "https://s3.bmp.ovh/imgs/2025/12/08/ec433cf214faf102.jpg",
     author: "官方",
     selections: {},
-    tags: ["人物", "创意", "图表"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_photo_grid",
@@ -636,8 +654,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "lens_param-7": { cn: "50mm, f/1.8", en: "50mm, f/1.8" },
       "lens_param-8": { cn: "85mm, f/2.2", en: "85mm, f/2.2" }
     },
-    tags: ["人物", "摄影"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_fashion",
@@ -646,8 +667,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
     imageUrl: "https://s3.bmp.ovh/imgs/2025/12/08/4d9f92ccb4113fdd.jpg",
     author: "官方",
     selections: {},
-    tags: ["人物", "创意", "卡通"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_character_selfie",
@@ -656,8 +680,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
     imageUrl: "https://s3.bmp.ovh/imgs/2025/12/08/c2312d24d0f2c38e.jpeg",
     author: "官方",
     selections: {},
-    tags: ["人物", "创意"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_classic_scene",
@@ -670,8 +697,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "render_style": { cn: "Octane Render 和 Cinema 4D", en: "Octane Render and Cinema 4D" },
       "position": { cn: "顶部中央", en: "Top Center" }
     },
-    tags: ["卡通", "创意", "游戏"],
-    language: ["cn", "en"]
+    tags: ['风格/卡通'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_corporate_growth",
@@ -684,8 +714,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "render_style": { cn: "3D像素风格", en: "3D Pixel Art Style" },
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
-    tags: ["建筑", "创意", "图表"],
-    language: ["cn", "en"]
+    tags: ['主题/建筑'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_fisheye_urban",
@@ -711,8 +744,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "ratio": { cn: "圆形画幅", en: "Circular Aspect Ratio" },
       "render_style": { cn: "高质量的 2D 插画风格", en: "High-quality 2D illustration style" }
     },
-    tags: ["摄影", "创意", "人物"],
-    language: ["cn", "en"]
+    tags: ['风格/摄影'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_detective_social",
@@ -725,8 +761,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "social_media": { cn: "微信朋友圈", en: "WeChat Moments" },
       "ratio": { cn: "9:16竖构图", en: "9:16 Vertical" }
     },
-    tags: ["创意", "人物", "摄影"],
-    language: ["cn", "en"]
+    tags: ['用途/创意'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_magazine_cover",
@@ -742,8 +781,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "travel_location": { cn: "东北雪乡", en: "Snow Village in Northeast China" },
       "ratio": { cn: "9:16竖构图", en: "9:16 Vertical" }
     },
-    tags: ["人物", "摄影", "创意"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_manga_reality",
@@ -756,8 +798,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "comic_scene": { cn: "唯美的卧室", en: "Beautiful bedroom" },
       "ratio": { cn: "9:16竖构图", en: "9:16 Vertical" }
     },
-    tags: ["人物", "创意", "卡通"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_industrial_design",
@@ -770,8 +815,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "design_item": { cn: "无人机", en: "Drone" },
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
-    tags: ["产品", "创意", "图表"],
-    language: ["cn", "en"]
+    tags: ['主题/产品'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_photo_grid_v2",
@@ -800,8 +848,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "lens_param-7": { cn: "50mm, f/1.8", en: "50mm, f/1.8" },
       "lens_param-8": { cn: "85mm, f/2.2", en: "85mm, f/2.2" }
     },
-    tags: ["人物", "摄影"],
-    language: ["cn", "en"]
+    tags: ['主题/人物'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_raindrop_art",
@@ -813,8 +864,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "rain_shape": { cn: "芭蕾舞者", en: "Ballerina" },
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
-    tags: ["摄影", "创意"],
-    language: ["cn", "en"]
+    tags: ['风格/摄影'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_art_growth",
@@ -827,8 +881,11 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "render_style": { cn: "3D像素风格", en: "3D Pixel Art Style" },
       "ratio": { cn: "3:4竖构图", en: "3:4 Vertical" }
     },
-    tags: ["建筑", "创意", "图表"],
-    language: ["cn", "en"]
+    tags: ['主题/建筑'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   },
   {
     id: "tpl_miniature_desk",
@@ -842,7 +899,10 @@ export const INITIAL_TEMPLATES_CONFIG = [
       "render_style": { cn: "毛毡与粘土", en: "Felt and Clay" },
       "ratio": { cn: "4:3横构图", en: "4:3 Horizontal" }
     },
-    tags: ["摄影", "创意", "卡通"],
-    language: ["cn", "en"]
+    tags: ['风格/卡通'],
+    language: ["cn", "en"],
+    notes: "",
+    version: 1,
+    history: []
   }
 ];

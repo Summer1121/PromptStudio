@@ -1,27 +1,25 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Copy, Plus, X, Settings, Check, Edit3, Eye, Trash2, FileText, Pencil, Copy as CopyIcon, Globe, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, GripVertical, Download, Upload, Image as ImageIcon, List, Undo, Redo, Maximize2, RotateCcw, LayoutGrid, Sidebar, Search, ArrowRight, User, ArrowUpRight, ArrowUpDown, RefreshCw, Sparkles } from 'lucide-react';
-import { confirm } from '@tauri-apps/plugin-dialog';
-
-// Tauri services for file system access
-import { readDataFile, writeDataFile } from './services/tauri-service';
-
-// Initial data for first-time setup
-import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAGS } from './data/templates';
-import { INITIAL_BANKS, INITIAL_DEFAULTS, INITIAL_CATEGORIES } from './data/banks';
-
-// Constants and Utils
-import { TRANSLATIONS } from './constants/translations';
-import { TAG_LABELS } from './constants/styles';
-import { getLocalized } from './utils/helpers';
-
-// UI Components
-import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor } from './components';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { confirm, message } from '@tauri-apps/plugin-dialog';
+import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
-
+import { TagManager } from './components/TagManager';
+import { SettingsModal } from './components/SettingsModal';
+import { DiffView } from './components/DiffView';
+import { readDataFile, writeDataFile } from './services/tauri-service';
+import { getLocalized } from './utils/helpers';
+import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAG_TREE } from './data/templates';
+import { INITIAL_BANKS, INITIAL_CATEGORIES, INITIAL_DEFAULTS } from './data/banks';
+import { TRANSLATIONS } from './constants/translations';
+import { TAG_LABELS } from './constants/styles';
+import { Check } from 'lucide-react';
 
 const App = () => {
   const APP_VERSION = "0.7.2"; // Final authoritative version with Tauri dialog
+
+  // --- UI & Control State ---
+  const [sidebarWidth, setSidebarWidth] = useState(380);
+  const [isResizing, setIsResizing] = useState(false);
 
   // --- Core Data State ---
   const [templates, setTemplates] = useState([]);
@@ -31,19 +29,45 @@ const App = () => {
   const [activeTemplateId, setActiveTemplateId] = useState(null);
   const [language, setLanguage] = useState("cn");
   const [templateLanguage, setTemplateLanguage] = useState("cn");
+  const [tagTree, setTagTree] = useState(TEMPLATE_TAG_TREE);
+  const [llmSettings, setLlmSettings] = useState({});
   
   // --- UI & Control State ---
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDiscoveryView, setDiscoveryView] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+  const [isDiffViewOpen, setIsDiffViewOpen] = useState(false);
   
   // Sidebar filtering/sorting state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState("");
+  const [selectedTags, setSelectedTags] = useState([]); // This will now represent an array of paths
   const [sortOrder, setSortOrder] = useState("newest");
   const [randomSeed, setRandomSeed] = useState(Date.now());
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [openDirectories, setOpenDirectories] = useState(null); // null: initial state, all open. {}: collapsed.
+
+  const editorRef = useRef(null);
+
+  const isOpenDirectory = (path) => {
+    if (openDirectories === null) return true; // Default to all open initially
+    return openDirectories[path] ?? false; // After first interaction, default to closed
+  };
+
+  const toggleDirectory = (path) => {
+    const newOpenState = openDirectories === null 
+      ? flatTags.reduce((acc, p) => ({ ...acc, [p]: true }), {})
+      : openDirectories;
+      
+    setOpenDirectories({
+      ...newOpenState,
+      [path]: !(newOpenState[path] ?? false)
+    });
+  };
+
+  const collapseAllDirectories = () => {
+    setOpenDirectories({}); // Empty object means all are collapsed (defaults to false)
+  };
   
   // Template renaming state
   const [editingTemplateNameId, setEditingTemplateNameId] = useState(null);
@@ -56,26 +80,88 @@ const App = () => {
     y: 0,
     options: [],
     bankKey: null,
+    variableIndex: null,
   });
+  const [tagMenuState, setTagMenuState] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    options: [], // This will be allTags
+  });
+  const [historyMenuState, setHistoryMenuState] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+  });
+  const [drafts, setDrafts] = useState({}); // Stores draft content for each template ID
+  const [historyDiffTarget, setHistoryDiffTarget] = useState(null);
+  const isPickerOpening = useRef(false);
+  const keepDraftOnNextSwitch = useRef(false);
   
   const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileTab, setMobileTab] = useState(isMobileDevice ? "home" : "editor");
-  const textareaRef = useRef(null);
+
+  const startResizing = useCallback(() => {
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e) => {
+    if (isResizing) {
+      const newWidth = e.clientX;
+      if (newWidth >= 280 && newWidth <= 600) {
+        setSidebarWidth(newWidth);
+      }
+    }
+  }, [isResizing]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
   
   // --- Data Persistence Layer (Tauri) ---
   useEffect(() => {
     const loadData = async () => {
       const savedData = await readDataFile();
       if (savedData && savedData.templates && savedData.templates.length > 0) {
-        setTemplates(savedData.templates);
+        
+        const migratedTemplates = savedData.templates.map(t => {
+          const newTemplate = { ...t };
+          if (t.tagPath && !t.tags) {
+            newTemplate.tags = [t.tagPath];
+          }
+          delete newTemplate.tagPath;
+
+          if (newTemplate.version === undefined) {
+            newTemplate.version = 1;
+            newTemplate.history = [];
+          }
+
+          if (newTemplate.notes === undefined) {
+            newTemplate.notes = "";
+          }
+          return newTemplate;
+        });
+
+        setTemplates(migratedTemplates);
         setBanks(savedData.banks || INITIAL_BANKS);
         setCategories(savedData.categories || INITIAL_CATEGORIES);
         setDefaults(savedData.defaults || INITIAL_DEFAULTS);
         setLanguage(savedData.language || 'cn');
         setTemplateLanguage(savedData.templateLanguage || 'cn');
+        setTagTree(savedData.tagTree || TEMPLATE_TAG_TREE);
+        setLlmSettings(savedData.llmSettings || {});
         
-        const activeIdIsValid = savedData.templates.some(t => t.id === savedData.activeTemplateId);
-        setActiveTemplateId(activeIdIsValid ? savedData.activeTemplateId : savedData.templates[0].id);
+        const activeIdIsValid = migratedTemplates.some(t => t.id === savedData.activeTemplateId);
+        setActiveTemplateId(activeIdIsValid ? savedData.activeTemplateId : (migratedTemplates[0]?.id || null));
       } else {
         setTemplates(INITIAL_TEMPLATES_CONFIG);
         setBanks(INITIAL_BANKS);
@@ -99,40 +185,112 @@ const App = () => {
         activeTemplateId,
         language,
         templateLanguage,
+        tagTree,
+        llmSettings,
       });
     }, 1000);
     return () => clearTimeout(handler);
-  }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, dataLoaded]);
+  }, [templates, banks, categories, defaults, activeTemplateId, language, templateLanguage, tagTree, llmSettings, dataLoaded]);
 
-  // --- Helper Functions ---
-  const t = (key, params = {}) => {
-    let str = TRANSLATIONS[language]?.[key] || key;
-    Object.keys(params).forEach(k => { str = str.replace(`{{${k}}}`, params[k]); });
-    return str;
-  };
+  useEffect(() => {
+    if (keepDraftOnNextSwitch.current) {
+        keepDraftOnNextSwitch.current = false;
+        return;
+    }
+    // No longer clearing drafts on switch
+  }, [activeTemplateId]);
+
+    const handleRestoreVersion = (historyEntry) => {
+      if (!activeTemplate) return;
+      const newHistoryEntry = {
+        content: activeTemplate.content,
+        version: activeTemplate.version,
+        createdAt: activeTemplate.updatedAt || activeTemplate.createdAt,
+      };
+      const newHistory = [newHistoryEntry, ...(activeTemplate.history || [])];
+      handleUpdateTemplate(activeTemplate.id, {
+        content: historyEntry.content,
+        version: (activeTemplate.version || 1) + 1,
+        history: newHistory,
+      });
+      setDrafts(prev => {
+        const newDrafts = { ...prev };
+        delete newDrafts[activeTemplateId];
+        return newDrafts;
+      });
+    };
+  
+    const onOpenHistory = (rect) => {
+      setHistoryMenuState({
+        visible: true,
+        x: rect.left,
+        y: rect.bottom,
+      });
+    };
+  
+      const onCloseHistory = () => {
+        setHistoryMenuState({ ...historyMenuState, visible: false });
+      };
+  
+      const handleViewHistoryDiff = (historyEntry) => {
+        setHistoryDiffTarget(historyEntry);
+        setIsDiffViewOpen(true);
+      };
+  
+      const t = (key, params = {}) => {
+        let str = TRANSLATIONS[language]?.[key] || key;
+        Object.keys(params).forEach(k => { str = str.replace(`{{${k}}}`, params[k]); });
+        return str;
+      };
   
   const displayTag = React.useCallback((tag) => {
     return TAG_LABELS[language]?.[tag] || tag;
   }, [language]);
 
-  // --- Derived State ---
+  const flatTags = useMemo(() => {
+    const flatten = (nodes, prefix = '') => {
+      let paths = [];
+      if (!Array.isArray(nodes)) return paths;
+      nodes.forEach(node => {
+        const currentPath = prefix ? `${prefix}/${node.name}` : node.name;
+        if (node.children && node.children.length > 0) {
+          paths = paths.concat(flatten(node.children, currentPath));
+        } else {
+          paths.push(currentPath);
+        }
+      });
+      return paths;
+    };
+    return flatten(tagTree || []);
+  }, [tagTree]);
+
   const activeTemplate = useMemo(() => {
       if (!activeTemplateId || !Array.isArray(templates) || templates.length === 0) return null;
       return templates.find(t => t.id === activeTemplateId);
   }, [templates, activeTemplateId]);
+
+  const isDraft = useMemo(() => {
+    const draftContent = drafts[activeTemplateId];
+    if (!activeTemplate || draftContent === undefined) return false;
+    return draftContent !== getLocalized(activeTemplate.content, templateLanguage);
+  }, [activeTemplate, drafts, templateLanguage]);
   
   const filteredTemplates = useMemo(() => {
-    if (!Array.isArray(templates)) return [];
-    
-    const filtered = templates.filter(t => {
+    let processedTemplates = [...templates];
+    if (searchQuery) {
+      processedTemplates = processedTemplates.filter(t => {
         if (!t || !t.name) return false;
         const templateName = getLocalized(t.name, language);
-        const matchesSearch = !searchQuery || templateName.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesTags = selectedTags === "" || (t.tags && t.tags.includes(selectedTags));
-        return matchesSearch && matchesTags;
-    });
-
-    return [...filtered].sort((a, b) => {
+        return templateName.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+    }
+    if (selectedTags.length > 0) {
+      processedTemplates = processedTemplates.filter(t => {
+        if (!t.tags || t.tags.length === 0) return false;
+        return t.tags.some(templateTag => selectedTags.some(filterTag => templateTag.startsWith(filterTag)));
+      });
+    }
+    processedTemplates.sort((a, b) => {
         const nameA = getLocalized(a.name, language) || '';
         const nameB = getLocalized(b.name, language) || '';
         switch(sortOrder) {
@@ -143,17 +301,44 @@ const App = () => {
                 const hashB = (b.id + randomSeed).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
                 return hashA - hashB;
             case 'oldest': return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
-            case 'newest':
-            default:
-                return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+            case 'newest': default: return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         }
     });
+    const tree = {};
+    processedTemplates.forEach(template => {
+      const paths = template.tags && template.tags.length > 0 ? template.tags : ['uncategorized'];
+      paths.forEach(path => {
+        if (path === 'uncategorized' || !path) {
+          if (!tree.uncategorized) tree.uncategorized = { children: {}, templates: [] };
+          if (!tree.uncategorized.templates.some(t => t.id === template.id)) {
+            tree.uncategorized.templates.push(template);
+          }
+          return;
+        }
+        const parts = path.split('/');
+        let parentNode = tree;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+          if (!parentNode[part]) {
+            parentNode[part] = { children: {}, templates: [] };
+          }
+          parentNode = parentNode[part].children;
+        }
+        const leafName = parts[parts.length - 1];
+        if (!parentNode[leafName]) {
+          parentNode[leafName] = { children: {}, templates: [] };
+        }
+        if (!parentNode[leafName].templates.some(t => t.id === template.id)) {
+          parentNode[leafName].templates.push(template);
+        }
+      });
+    });
+    return tree;
   }, [templates, searchQuery, selectedTags, sortOrder, randomSeed, language]);
 
-  // --- Action Handlers ---
   const handleAddTemplate = () => {
     const newId = `tpl_${Date.now()}`;
-    const newTemplate = { id: newId, name: t('new_template_name'), author: "Me", content: t('new_template_content'), selections: {}, tags: [], createdAt: new Date().toISOString() };
+    const newTemplate = { id: newId, name: t('new_template_name'), author: "Me", content: t('new_template_content'), selections: {}, tags: [], createdAt: new Date().toISOString(), notes: "", version: 1, history: [] };
     setTemplates(prev => [newTemplate, ...prev]);
     setActiveTemplateId(newId);
   };
@@ -164,10 +349,10 @@ const App = () => {
     const duplicateName = (name) => {
       if (typeof name === 'string') return `${name}${t('copy_suffix')}`;
       const newName = { ...name };
-      Object.keys(newName).forEach(lang => { newName[lang] = `${newName[lang]}${t('copy_suffix') || ' (Copy)'}`; });
+      Object.keys(newName).forEach(lang => { newName[lang] = `${newName[lang]}${t('copy_suffix') || ' (Copy)'}` });
       return newName;
     };
-    const newTemplate = { ...templateToCopy, id: newId, name: duplicateName(templateToCopy.name), createdAt: new Date().toISOString() };
+    const newTemplate = { ...templateToCopy, id: newId, name: duplicateName(templateToCopy.name), createdAt: new Date().toISOString(), version: 1, history: [] };
     setTemplates(prev => [newTemplate, ...prev]);
     setActiveTemplateId(newId);
   };
@@ -176,7 +361,7 @@ const App = () => {
     if (e) e.stopPropagation();
     
     const confirmed = await confirm(t('confirm_delete_template'), { 
-      title: t('confirm_delete_title') || 'Confirm Deletion', 
+      title: t('confirm_delete_title') || 'Confirm Deletion',
       type: 'warning' 
     });
 
@@ -214,42 +399,28 @@ const App = () => {
   };
 
   const insertVariableToTemplate = (key) => {
-    if (!activeTemplate) return;
-    const textarea = document.querySelector('#prompt-editor-textarea');
-    if (!textarea) return;
-    const textToInsert = ` {{${key}}} `;
-    const { selectionStart, selectionEnd, value } = textarea;
-    const updatedText = `${value.substring(0, selectionStart)}${textToInsert}${value.substring(selectionEnd)}`;
-    const newContent = typeof activeTemplate.content === 'object'
-      ? { ...activeTemplate.content, [templateLanguage]: updatedText }
-      : updatedText;
-    handleUpdateTemplate(activeTemplate.id, { content: newContent });
-    setTimeout(() => {
-      textarea.focus();
-      const newPos = selectionStart + textToInsert.length;
-      textarea.setSelectionRange(newPos, newPos);
-    }, 0);
+    if (editorRef.current) {
+      editorRef.current.insertVariable(key);
+    }
   };
 
   const handleCopy = () => {
     if (!activeTemplate) return;
-
-    // This function will need to resolve variables in the content before copying
-    const finalContent = getLocalized(activeTemplate.content, templateLanguage)
-      .replace(/\{\{([^}]+)\}\}|\{\{([^}]+)\}\}?/g, (match, key) => {
+    const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+    const parts = content.split(/(\s*\{\{[^\}\n]+\}\}\s*)/g);
+    const finalContent = parts.map((part, i) => {
+      if (part.startsWith('{{') && part.endsWith('}}')) {
+        const key = part.slice(2, -2).trim();
         const bankKey = key.trim();
-        const selectionKey = `${activeTemplate.id}-${bankKey}`;
+        const selectionKey = `${activeTemplate.id}-${bankKey}-${i}`;
         const selectionIndex = activeTemplate.selections?.[selectionKey];
         if (selectionIndex !== undefined && banks[bankKey]) {
           return getLocalized(banks[bankKey].options[selectionIndex], language);
         }
-        // If no selection, try to use default
-        const defaultIndex = defaults[bankKey];
-        if (defaultIndex !== undefined && banks[bankKey]) {
-            return getLocalized(banks[bankKey].options[defaultIndex], language);
-        }
-        return match; // Keep placeholder if not found
-      });
+        return part; 
+      }
+      return part;
+    }).join('');
 
     navigator.clipboard.writeText(finalContent).then(() => {
       setCopied(true);
@@ -257,8 +428,8 @@ const App = () => {
     });
   };
 
-  const handleVariableClick = (key, event) => {
-    console.log('handleVariableClick called with key:', key);
+  const handleVariableClick = (key, event, variableIndex) => {
+    isPickerOpening.current = true;
     const bank = banks[key];
     if (!bank || !bank.options) return;
 
@@ -269,15 +440,16 @@ const App = () => {
       y: rect.bottom,
       options: bank.options.map(opt => getLocalized(opt, language)),
       bankKey: key,
+      variableIndex: variableIndex,
     });
+    setTimeout(() => { isPickerOpening.current = false; }, 100);
   };
 
   const handleVariableSelect = (selectedIndex) => {
-    console.log('handleVariableSelect called with index:', selectedIndex);
     if (!activeTemplate || !variablePickerState.bankKey) return;
 
-    const { bankKey } = variablePickerState;
-    const selectionKey = `${activeTemplate.id}-${bankKey}`;
+    const { bankKey, variableIndex } = variablePickerState;
+    const selectionKey = `${activeTemplate.id}-${bankKey}-${variableIndex}`;
     
     const newSelections = {
       ...activeTemplate.selections,
@@ -289,6 +461,137 @@ const App = () => {
     setVariablePickerState({ ...variablePickerState, visible: false });
   };
   
+  const onOpenTagMenu = (rect) => {
+    setTagMenuState({
+      visible: true,
+      x: rect.left,
+      y: rect.bottom,
+      options: flatTags, 
+    });
+  };
+
+  const onCloseTagMenu = () => {
+    setTagMenuState(prev => ({ ...prev, visible: false }));
+  };
+
+  const handleSaveAsNew = () => {
+    if (!activeTemplate) return;
+    const contentToSave = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+
+    const newId = `tpl_${Date.now()}`;
+    const newName = (name => {
+      const suffix = t('copy_suffix') || ' (Copy)';
+      if (typeof name === 'object') {
+        const newNameObj = { ...name };
+        Object.keys(newNameObj).forEach(lang => { newNameObj[lang] = `${newNameObj[lang]}${suffix}` });
+        return newNameObj;
+      }
+      return `${name}${suffix}`;
+    })(activeTemplate.name);
+
+    const newTemplate = { 
+      ...activeTemplate, 
+      id: newId, 
+      name: newName, 
+      content: contentToSave, 
+      createdAt: new Date().toISOString(),
+      notes: activeTemplate.notes,
+      version: 1, 
+      history: []
+    };
+    
+    setTemplates(prev => [newTemplate, ...prev]);
+    
+    keepDraftOnNextSwitch.current = true;
+    setActiveTemplateId(newId);
+  };
+
+  const handleApplyDraft = () => {
+    const draftContent = drafts[activeTemplateId];
+    if (!activeTemplate || draftContent === undefined) return;
+
+    const currentTemplate = templates.find(t => t.id === activeTemplateId);
+    if (!currentTemplate) return;
+
+    const historyEntry = {
+      content: currentTemplate.content,
+      version: currentTemplate.version,
+      createdAt: currentTemplate.updatedAt || currentTemplate.createdAt,
+    };
+    
+    const newHistory = [historyEntry, ...(currentTemplate.history || [])];
+
+    handleUpdateTemplate(activeTemplate.id, { 
+      content: draftContent,
+      version: (currentTemplate.version || 1) + 1,
+      history: newHistory,
+    });
+    
+    setDrafts(prev => {
+      const newDrafts = { ...prev };
+      delete newDrafts[activeTemplateId];
+      return newDrafts;
+    });
+  };
+  
+  const handleResetDraft = () => {
+    setDrafts(prev => {
+      const newDrafts = { ...prev };
+      delete newDrafts[activeTemplateId];
+      return newDrafts;
+    });
+  };
+
+  const onSaveNotes = (notesContent) => {
+    if (activeTemplate) {
+      handleUpdateTemplate(activeTemplate.id, { notes: notesContent });
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!llmSettings.endpoint || !llmSettings.apiKey) {
+      await message(t('llm_settings_not_configured'));
+      return;
+    }
+
+    if (!activeTemplate) return;
+
+    const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+
+    try {
+      const response = await fetch(llmSettings.endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${llmSettings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert in analyzing prompts. Your task is to extract relevant tags and identify replaceable parts as variables from the given prompt content. Return a JSON object with two keys: 'tags' (an array of strings) and 'variables' (an array of strings).",
+            },
+            {
+              role: "user",
+              content: `Analyze the following prompt and extract tags and variables:\n\n${content}`,
+            }
+          ],
+        }),
+      });
+
+      const data = await response.json();
+      const result = JSON.parse(data.choices[0].message.content);
+      console.log('Generated data:', result);
+      
+      await message(`Generated Tags: ${result.tags.join(', ')}\nGenerated Variables: ${result.variables.join(', ')}`);
+
+    } catch (error) {
+      console.error('Error generating tags and variables:', error);
+      await message(t('ai_generation_failed'));
+    }
+  };
+  
   if (!dataLoaded) {
       return <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -298,7 +601,7 @@ const App = () => {
       {variablePickerState.visible && (
         <>
           <div 
-            className="fixed inset-0 z-40" 
+            className="fixed inset-0 z-40"
             onClick={() => setVariablePickerState({ ...variablePickerState, visible: false })}
           />
           <div style={{ position: 'fixed', top: variablePickerState.y, left: variablePickerState.x, zIndex: 50 }}>
@@ -310,69 +613,194 @@ const App = () => {
           </div>
         </>
       )}
-      <div className="flex flex-1 overflow-hidden">
-        <TemplatesSidebar
-          templates={filteredTemplates}
-          activeTemplateId={activeTemplateId}
-          setActiveTemplateId={setActiveTemplateId}
-          onAddTemplate={handleAddTemplate}
-          onDuplicateTemplate={handleDuplicateTemplate}
-          onDeleteTemplate={handleDeleteTemplate}
-          onRenameTemplate={startRenamingTemplate}
-          saveTemplateName={saveTemplateName}
-          editingTemplateNameId={editingTemplateNameId}
-          setEditingTemplateNameId={setEditingTemplateNameId}
-          tempTemplateName={tempTemplateName}
-          setTempTemplateName={setTempTemplateName}
-          tempTemplateAuthor={tempTemplateAuthor}
-          setTempTemplateAuthor={setTempTemplateAuthor}
-          handleResetTemplate={() => alert('Reset not implemented yet')}
-          handleExportTemplate={() => alert('Export not implemented yet')}
-          language={language}
-          setLanguage={setLanguage}
+      {tagMenuState.visible && (
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={onCloseTagMenu}
+          />
+          <div style={{ position: 'fixed', top: tagMenuState.y, left: tagMenuState.x, zIndex: 50 }}>
+            <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[160px] z-[100]">
+              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b">{t('assign_tags')}</div>
+              <div className="max-h-48 overflow-y-auto">
+                {(tagMenuState.options || []).map(path => (
+                  <button
+                    key={path}
+                    onClick={() => {
+                      const currentTags = activeTemplate.tags || [];
+                      const newTags = currentTags.includes(path)
+                        ? currentTags.filter(p => p !== path)
+                        : [...currentTags, path];
+                      handleUpdateTemplate(activeTemplate.id, { tags: newTags });
+                      onCloseTagMenu();
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center justify-between ${ (activeTemplate.tags || []).includes(path) ? 'text-orange-600 font-semibold' : 'text-gray-700'}`}
+                  >
+                    <span>{path}</span>
+                    {(activeTemplate.tags || []).includes(path) && <Check size={14} />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {historyMenuState.visible && activeTemplate && (
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={onCloseHistory}
+          />
+          <div style={{ position: 'fixed', top: historyMenuState.y, left: historyMenuState.x, zIndex: 50 }}>
+            <div className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[220px] z-[100]">
+              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b">{t('version_history')}</div>
+              <div className="max-h-60 overflow-y-auto">
+                {(activeTemplate.history || []).length > 0 ? (
+                  activeTemplate.history.map(h => (
+                    <div key={h.version} className="flex items-center justify-between px-4 py-2 text-sm text-gray-700">
+                      <div>
+                        <span className="font-bold">v{h.version}</span>
+                        <span className="text-xs text-gray-400 ml-2">{new Date(h.createdAt).toLocaleString()}</span>
+                      </div>
+                                            <button 
+                                              onClick={() => {
+                                                handleViewHistoryDiff(h);
+                                                onCloseHistory();
+                                              }}
+                                              className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-yellow-100 hover:text-yellow-600 transition-colors"
+                                            >
+                                              {t('diff')}
+                                            </button>                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-xs text-gray-400">{t('no_history')}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {isTagManagerOpen && (
+        <TagManager
+          tags={tagTree}
+          setTags={setTagTree}
+          onClose={() => setIsTagManagerOpen(false)}
           t={t}
-          displayTag={displayTag}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          selectedTags={selectedTags}
-          setSelectedTags={setSelectedTags}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          isSortMenuOpen={isSortMenuOpen}
-          setIsSortMenuOpen={setIsSortMenuOpen}
-          setRandomSeed={setRandomSeed}
-          setDiscoveryView={setDiscoveryView}
-          setIsSettingsOpen={setIsSettingsOpen}
         />
-        <main className="flex-1 flex flex-col relative overflow-y-auto">
+      )}
+      {isSettingsOpen && (
+        <SettingsModal
+          settings={llmSettings}
+          setSettings={setLlmSettings}
+          onClose={() => setIsSettingsOpen(false)}
+          t={t}
+        />
+      )}
+      {isDiffViewOpen && activeTemplate && (
+        <DiffView
+          isHistoryDiff={!!historyDiffTarget}
+          originalContent={historyDiffTarget ? historyDiffTarget.content : getLocalized(activeTemplate.content, templateLanguage)}
+          newContent={historyDiffTarget ? getLocalized(activeTemplate.content, templateLanguage) : drafts[activeTemplate.id]}
+          onClose={() => {
+            setIsDiffViewOpen(false);
+            setHistoryDiffTarget(null);
+          }}
+          onReset={() => {
+            handleResetDraft();
+            setIsDiffViewOpen(false);
+            setHistoryDiffTarget(null);
+          }}
+          onApply={() => {
+            if (historyDiffTarget) {
+              handleRestoreVersion(historyDiffTarget);
+            } else {
+              handleApplyDraft();
+            }
+            setIsDiffViewOpen(false);
+            setHistoryDiffTarget(null);
+          }}
+          t={t}
+        />
+      )}
+      <div className="flex flex-1 overflow-hidden">
+        <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
+          <TemplatesSidebar
+            templates={filteredTemplates}
+            activeTemplateId={activeTemplateId}
+            drafts={drafts}
+            setActiveTemplateId={setActiveTemplateId}
+            onAddTemplate={handleAddTemplate}
+            onDuplicateTemplate={handleDuplicateTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            onRenameTemplate={startRenamingTemplate}
+            saveTemplateName={saveTemplateName}
+            editingTemplateNameId={editingTemplateNameId}
+            setEditingTemplateNameId={setEditingTemplateNameId}
+            tempTemplateName={tempTemplateName}
+            setTempTemplateName={setTempTemplateName}
+            tempTemplateAuthor={tempTemplateAuthor}
+            setTempTemplateAuthor={setTempTemplateAuthor}
+            language={language}
+            setLanguage={setLanguage}
+            t={t}
+            displayTag={displayTag}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            selectedTags={selectedTags}
+            setSelectedTags={setSelectedTags}
+            sortOrder={sortOrder}
+            setSortOrder={setSortOrder}
+            isSortMenuOpen={isSortMenuOpen}
+            setIsSortMenuOpen={setIsSortMenuOpen}
+            setRandomSeed={setRandomSeed}
+            setDiscoveryView={setDiscoveryView}
+            setIsSettingsOpen={setIsSettingsOpen}
+            tagTree={tagTree}
+            onManageTags={() => setIsTagManagerOpen(true)}
+            isOpenDirectory={isOpenDirectory}
+            toggleDirectory={toggleDirectory}
+            collapseAllDirectories={collapseAllDirectories}
+          />
+        </div>
+        <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200"/>
+        <main className="flex-1 flex flex-col relative overflow-hidden z-10">
            {activeTemplate ? (
              <>
                <EditorToolbar
                  activeTemplate={activeTemplate}
                  onCopy={handleCopy}
                  copied={copied}
-                 isEditing={isEditing}
-                 setIsEditing={setIsEditing}
+                 isDraft={isDraft}
                  t={t}
                  language={language}
+                 onSaveAsNew={handleSaveAsNew}
+                 onGenerate={handleGenerate}
+                 onUpdateTemplate={handleUpdateTemplate}
+                 onOpenTagMenu={onOpenTagMenu}
+                 onCloseTagMenu={onCloseTagMenu}
+                 onOpenHistory={onOpenHistory}
+                 onCloseHistory={onCloseHistory}
+                 onRestoreVersion={handleRestoreVersion}
+                 onOpenDiff={() => setIsDiffViewOpen(true)}
                />
-               <VisualEditor
-                 ref={textareaRef}
-                 key={activeTemplate.id}
-                 value={getLocalized(activeTemplate.content, templateLanguage)}
-                 onChange={(e) => {
-                    const newContent = typeof activeTemplate.content === 'object'
-                        ? { ...activeTemplate.content, [templateLanguage]: e.target.value }
-                        : e.target.value;
-                    handleUpdateTemplate(activeTemplate.id, { content: newContent });
-                 }}
-                 banks={banks}
-                 categories={categories}
-                 isEditing={isEditing}
-                 onVariableClick={handleVariableClick}
-                 activeTemplate={activeTemplate}
-                 defaults={defaults}
-                 language={language}
+               <div className="flex-grow">
+                 <VisualEditor
+                   ref={editorRef}
+                   key={activeTemplate.id}
+                   value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
+                   banks={banks}
+                   categories={categories}
+                   onVariableClick={handleVariableClick}
+                   activeTemplate={activeTemplate}
+                   defaults={defaults}
+                   language={language}
+                   onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
+                 />
+               </div>
+               <NotesEditor 
+                 notes={activeTemplate.notes}
+                 onSaveNotes={onSaveNotes}
+                 t={t}
                />
              </>
            ) : (
