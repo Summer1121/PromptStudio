@@ -85,12 +85,8 @@ WSGI_APPLICATION = 'prompt_studio_be.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'promptstudio_db'),
-        'USER': os.environ.get('DB_USER', 'promptstudio_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'promptstudio_password'),
-        'HOST': 'db',  # This refers to the 'db' service in docker-compose.yml
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
