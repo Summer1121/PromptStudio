@@ -21,4 +21,4 @@ echo "---"
 cat "$RESULTS_FILE"
 """
 
-prompt="以shell执行 cs_fix_playwright.toml 中定义的 run脚本，获取自动化结果,如果没有则运行‘npm run test:e2e’，而后分析自动化结果并尝试修改代码。结束后执行 /cs_accept_fix 命令"
+prompt="以shell执行 cs_fix_playwright.toml 中定义的 run脚本，获取自动化结果,如果没有则提醒用户运行‘npm run test:e2e’，而后分析自动化结果并尝试修改代码。结束后执行 /cs_accept_fix 命令"

@@ -61,7 +61,8 @@ const Directory = ({
   name, 
   node, 
   level = 0, 
-  path, 
+  path,
+  allTemplates,
   activeTemplateId,
   drafts,
   setActiveTemplateId,
@@ -81,8 +82,12 @@ const Directory = ({
 }) => {
   const isOpen = isOpenDirectory(path);
 
+  const templatesInDir = name === 'uncategorized'
+    ? node.templates // For uncategorized, we receive them directly
+    : allTemplates.filter(temp => temp.tags && temp.tags.some(tag => tag === path));
+
   const hasChildren = node.children && Object.keys(node.children).length > 0;
-  const hasTemplates = node.templates && node.templates.length > 0;
+  const hasTemplates = templatesInDir && templatesInDir.length > 0;
 
   if (!hasChildren && !hasTemplates) {
     return null;
@@ -105,15 +110,16 @@ const Directory = ({
         <div className="mt-2">
           {hasChildren && (
             <div className="space-y-1">
-              {Object.entries(node.children).map(([childName, childNode]) => {
-                const childPath = path ? `${path}/${childName}` : childName;
+              {node.children.map((childNode) => {
+                const childPath = path ? `${path}/${childNode.name}` : childNode.name;
                 return (
                   <Directory 
-                    key={childName} 
-                    name={childName} 
+                    key={childNode.name} 
+                    name={childNode.name} 
                     node={childNode} 
                     level={level + 1} 
-                    path={childPath} 
+                    path={childPath}
+                    allTemplates={allTemplates}
                     {...{
                       activeTemplateId,
                       drafts,
@@ -140,7 +146,7 @@ const Directory = ({
           
           {hasTemplates && (
             <div className="grid grid-cols-1 gap-2.5 mt-2">
-              {node.templates.map(t_item => (
+              {templatesInDir.map(t_item => (
                 <TemplateItem 
                   key={t_item.id} 
                   t_item={t_item} 

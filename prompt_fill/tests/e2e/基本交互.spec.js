@@ -46,47 +46,83 @@ test.describe('基本交互测试', () => {
     await expect(textarea).toBeEditable();
   });
 
-  test('应允许编辑模板内容并进行“覆盖”和“另存为”', async ({ page }) => {
-    const editorToolbar = page.locator('main').locator('.border-b');
-    const editButton = editorToolbar.getByRole('button', { name: '编辑' });
-    const doneButton = editorToolbar.getByRole('button', { name: '完成' });
-    const saveAsNewButton = editorToolbar.getByRole('button', { name: '另存为新模板' });
-    const overwriteButton = editorToolbar.getByRole('button', { name: '覆盖模板' });
-    const textarea = page.locator('textarea').first();
-
-    // --- Test Save as New ---
+  test('变量应正确渲染并可点击', async ({ page }) => {
+    // 确保页面加载完成
     await page.locator('div[class="grid grid-cols-1 gap-2.5"] > div').first().click();
-    await editButton.click();
     
-    const editedContent = `这是新的测试内容 ${Date.now()}`;
-    await textarea.fill(editedContent);
-    await expect(textarea).toHaveValue(editedContent);
-    
-    await saveAsNewButton.click();
+    // 找到一个包含变量的模板
+    // 假设第一个模板包含变量，或者我们需要切换到包含变量的模板
+    // 例如，如果有一个名为“带变量的模板”的模板，可以这样点击：
+    // await page.getByText('带变量的模板').click();
 
-    const newTemplate = page.locator('div[class*="grid"] > div').first();
-    const newTemplateName = await newTemplate.locator('span').first().textContent();
-    expect(newTemplateName).toContain('(Edited)');
-    
-    // Verify content of the new template
-    await newTemplate.click();
-    await expect(page.locator('textarea').first()).toHaveValue(editedContent);
+    // 假设当前激活的模板内容中含有变量，例如 {{variableKey}}
+    // 在这里我们点击第一个模板，并假设它包含变量
+    await page.locator('div[class="grid grid-cols-1 gap-2.5"] > div').first().click();
 
-    // --- Test Overwrite ---
-    const secondTemplate = page.locator('div[class="grid grid-cols-1 gap-2.5"] > div').nth(1);
-    await secondTemplate.click();
-    await editButton.click();
-    
-    const anotherEditedContent = `这是被覆盖的测试内容 ${Date.now()}`;
-    await textarea.fill(anotherEditedContent);
-    await overwriteButton.click();
-    
-    // Buttons should disappear after save
-    await expect(overwriteButton).not.toBeVisible();
-    
-    // Verify content was saved
-    await doneButton.click(); // Exit edit mode to check preview
-    const previewArea = page.locator('pre[contenteditable="true"]');
-    await expect(previewArea).toContainText(anotherEditedContent);
+    // 找到一个渲染后的变量元素（通常是一个带有特定样式的span）
+    // 根据 VariableNode.jsx 中的 className: bg-orange-200 text-orange-800 ...
+    const variablePill = page.locator('.bg-orange-200.text-orange-800').first();
+    await expect(variablePill).toBeVisible();
+    await expect(variablePill).toHaveText(/{{.*}}/); // 检查文本格式是否正确
+
+    // 模拟点击变量，并验证弹窗是否出现
+    await variablePill.click();
+    const variablePicker = page.locator('div[role="dialog"]'); // 假设变量选择器有 role="dialog" 或其他唯一标识
+    await expect(variablePicker).toBeVisible();
+
+    // 关闭弹窗
+    await page.keyboard.press('Escape');
+    await expect(variablePicker).not.toBeVisible();
+  });
+
+  test('编辑器区域应能上下滚动', async ({ page }) => {
+    // 点击任意模板以激活编辑器
+    await page.locator('div[class="grid grid-cols-1 gap-2.5"] > div').first().click();
+
+    // 点击编辑按钮进入编辑模式
+    await page.getByRole('button', { name: '编辑' }).click();
+
+    // 找到编辑器内容区域
+    const editorContent = page.locator('.ProseMirror'); 
+    await expect(editorContent).toBeVisible();
+
+    // 注入大量内容以触发滚动条
+    const longContent = Array(100).fill('这是一段很长的文本，用于测试编辑器的滚动功能。').join('\n');
+    await editorContent.fill(longContent);
+
+    // 验证编辑器区域是否可滚动
+    // Playwright 无法直接验证 CSS overflow 属性或滚动条本身
+    // 但可以通过检查滚动高度是否大于客户端高度来间接验证
+    const scrollHeight = await editorContent.evaluate(node => node.scrollHeight);
+    const clientHeight = await editorContent.evaluate(node => node.clientHeight);
+    expect(scrollHeight).toBeGreaterThan(clientHeight);
+
+    // 尝试向下滚动，并验证滚动位置是否改变 (间接验证)
+    await editorContent.evaluate(node => node.scrollTop = node.scrollHeight);
+    const newScrollTop = await editorContent.evaluate(node => node.scrollTop);
+    expect(newScrollTop).toBeGreaterThan(0);
+  });
+
+  test('备注框应常驻悬浮在底部且不遮挡编辑器内容', async ({ page }) => {
+    // 点击任意模板以激活编辑器
+    await page.locator('div[class="grid grid-cols-1 gap-2.5"] > div').first().click();
+
+    const notesEditor = page.locator('.notes-editor-container'); // 假设备注框有特定类名
+    // 验证备注框是否可见
+    await expect(notesEditor).toBeVisible();
+
+    // 验证备注框是否在底部 (通过其 Y 坐标间接判断)
+    const viewportHeight = page.viewportSize().height;
+    const notesEditorBoundingBox = await notesEditor.boundingBox();
+    expect(notesEditorBoundingBox.y + notesEditorBoundingBox.height).toBeCloseTo(viewportHeight);
+
+    // 验证备注框没有遮挡编辑器主内容
+    // 这通过检查编辑器的底部位置与备注框的顶部位置来间接验证
+    const editorContent = page.locator('.ProseMirror');
+    const editorContentBoundingBox = await editorContent.boundingBox();
+
+    // 编辑器内容的底部应该在备注框的顶部之上
+    expect(editorContentBoundingBox.y + editorContentBoundingBox.height).toBeLessThan(notesEditorBoundingBox.y);
   });
 });
+

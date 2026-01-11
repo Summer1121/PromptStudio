@@ -275,7 +275,7 @@ const App = () => {
     return draftContent !== getLocalized(activeTemplate.content, templateLanguage);
   }, [activeTemplate, drafts, templateLanguage]);
   
-  const filteredTemplates = useMemo(() => {
+  const displayTemplates = useMemo(() => {
     let processedTemplates = [...templates];
     if (searchQuery) {
       processedTemplates = processedTemplates.filter(t => {
@@ -304,37 +304,9 @@ const App = () => {
             case 'newest': default: return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         }
     });
-    const tree = {};
-    processedTemplates.forEach(template => {
-      const paths = template.tags && template.tags.length > 0 ? template.tags : ['uncategorized'];
-      paths.forEach(path => {
-        if (path === 'uncategorized' || !path) {
-          if (!tree.uncategorized) tree.uncategorized = { children: {}, templates: [] };
-          if (!tree.uncategorized.templates.some(t => t.id === template.id)) {
-            tree.uncategorized.templates.push(template);
-          }
-          return;
-        }
-        const parts = path.split('/');
-        let parentNode = tree;
-        for (let i = 0; i < parts.length - 1; i++) {
-          const part = parts[i];
-          if (!parentNode[part]) {
-            parentNode[part] = { children: {}, templates: [] };
-          }
-          parentNode = parentNode[part].children;
-        }
-        const leafName = parts[parts.length - 1];
-        if (!parentNode[leafName]) {
-          parentNode[leafName] = { children: {}, templates: [] };
-        }
-        if (!parentNode[leafName].templates.some(t => t.id === template.id)) {
-          parentNode[leafName].templates.push(template);
-        }
-      });
-    });
-    return tree;
+    return processedTemplates;
   }, [templates, searchQuery, selectedTags, sortOrder, randomSeed, language]);
+
 
   const handleAddTemplate = () => {
     const newId = `tpl_${Date.now()}`;
@@ -597,7 +569,7 @@ const App = () => {
   }
   
   return (
-    <div className={`font-sans antialiased bg-gray-100 flex flex-col h-screen overflow-hidden`}>
+    <div className={`font-sans antialiased bg-gray-100 flex flex-col h-screen`}>
       {variablePickerState.visible && (
         <>
           <div 
@@ -722,10 +694,13 @@ const App = () => {
           t={t}
         />
       )}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 h-full overflow-hidden">
+        {/* Left Sidebar */}
         <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
           <TemplatesSidebar
-            templates={filteredTemplates}
+            tagTree={tagTree}
+            displayTemplates={displayTemplates}
+            templates={templates}
             activeTemplateId={activeTemplateId}
             drafts={drafts}
             setActiveTemplateId={setActiveTemplateId}
@@ -755,15 +730,16 @@ const App = () => {
             setRandomSeed={setRandomSeed}
             setDiscoveryView={setDiscoveryView}
             setIsSettingsOpen={setIsSettingsOpen}
-            tagTree={tagTree}
             onManageTags={() => setIsTagManagerOpen(true)}
             isOpenDirectory={isOpenDirectory}
             toggleDirectory={toggleDirectory}
             collapseAllDirectories={collapseAllDirectories}
           />
         </div>
-        <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200"/>
-        <main className="flex-1 flex flex-col relative overflow-hidden z-10">
+        <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200 h-full"/>
+        
+        {/* Main Content */}
+        <main className="flex-1 flex flex-col relative z-10 h-full overflow-y-auto">
            {activeTemplate ? (
              <>
                <EditorToolbar
@@ -783,38 +759,40 @@ const App = () => {
                  onRestoreVersion={handleRestoreVersion}
                  onOpenDiff={() => setIsDiffViewOpen(true)}
                />
-               <div className="flex-grow">
-                 <VisualEditor
-                   ref={editorRef}
-                   key={activeTemplate.id}
-                   value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
-                   banks={banks}
-                   categories={categories}
-                   onVariableClick={handleVariableClick}
-                   activeTemplate={activeTemplate}
-                   defaults={defaults}
-                   language={language}
-                   onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
-                 />
-               </div>
-               <NotesEditor 
-                 notes={activeTemplate.notes}
-                 onSaveNotes={onSaveNotes}
-                 t={t}
-               />
+                <div className="flex-grow relative h-full">
+                    <VisualEditor
+                        ref={editorRef}
+                        key={activeTemplate.id}
+                        value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
+                        banks={banks}
+                        categories={categories}
+                        onVariableClick={handleVariableClick}
+                        activeTemplate={activeTemplate}
+                        defaults={defaults}
+                        language={language}
+                        onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
+                    />
+                    <NotesEditor
+                        notes={activeTemplate.notes}
+                        onSaveNotes={onSaveNotes}
+                        t={t}
+                    />
+                </div>
              </>
            ) : (
              <div className="flex-1 flex items-center justify-center text-gray-400">Select a template.</div>
            )}
         </main>
-        <BanksSidebar
-            banks={banks}
-            categories={categories}
-            onInsert={insertVariableToTemplate}
-            language={language}
-            t={t}
-        />
       </div>
+      
+      {/* Banks Sidebar (Now Floating) */}
+      <BanksSidebar
+          banks={banks}
+          categories={categories}
+          onInsert={insertVariableToTemplate}
+          language={language}
+          t={t}
+      />
     </div>
   );
 };

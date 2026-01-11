@@ -1,0 +1,826 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - heading "提示词填空器" [level=1] [ref=e10]
+        - generic [ref=e11]:
+          - button "回到发现页" [ref=e12] [cursor=pointer]:
+            - img [ref=e13]
+          - button "强制更新内置模版与词库，保留用户自定义" [ref=e16] [cursor=pointer]:
+            - img [ref=e17]
+          - button "排序" [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+          - button "CN" [ref=e25] [cursor=pointer]:
+            - img [ref=e26]
+            - text: CN
+          - button "设置" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - img [ref=e35]
+          - textbox "搜索模版..." [ref=e38]
+        - generic [ref=e39]:
+          - button "全部" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]:
+              - img [ref=e43]
+              - generic [ref=e45]: 全部
+            - img [ref=e46]
+          - button "一键收起" [ref=e48] [cursor=pointer]:
+            - img [ref=e49]
+          - button "管理标签" [ref=e52] [cursor=pointer]
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - button "主题" [ref=e56] [cursor=pointer]:
+          - img [ref=e57]
+          - img [ref=e59]
+          - generic [ref=e61]: 主题
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - button "人物" [ref=e65] [cursor=pointer]:
+              - img [ref=e66]
+              - img [ref=e68]
+              - generic [ref=e70]: 人物
+            - generic [ref=e72]:
+              - generic [ref=e73] [cursor=pointer]:
+                - generic [ref=e74]:
+                  - generic [ref=e76]: 角色概念分解图
+                  - generic [ref=e77]:
+                    - button "重命名" [ref=e78]:
+                      - img [ref=e79]
+                    - button "创建副本" [ref=e82]:
+                      - img [ref=e83]
+                    - button "删除" [ref=e86]:
+                      - img [ref=e87]
+                - generic [ref=e90]:
+                  - generic [ref=e91]: 主题/人物
+                  - generic [ref=e92]: 风格/卡通
+              - generic [ref=e93] [cursor=pointer]:
+                - generic [ref=e94]:
+                  - generic [ref=e96]: 3x3 摄影网格
+                  - generic [ref=e97]:
+                    - button "重命名" [ref=e98]:
+                      - img [ref=e99]
+                    - button "创建副本" [ref=e102]:
+                      - img [ref=e103]
+                    - button "删除" [ref=e106]:
+                      - img [ref=e107]
+                - generic [ref=e111]: 主题/人物
+              - generic [ref=e112] [cursor=pointer]:
+                - generic [ref=e113]:
+                  - generic [ref=e115]: 时尚情绪板插画
+                  - generic [ref=e116]:
+                    - button "重命名" [ref=e117]:
+                      - img [ref=e118]
+                    - button "创建副本" [ref=e121]:
+                      - img [ref=e122]
+                    - button "删除" [ref=e125]:
+                      - img [ref=e126]
+                - generic [ref=e130]: 主题/人物
+              - generic [ref=e131] [cursor=pointer]:
+                - generic [ref=e132]:
+                  - generic [ref=e134]: 人物趣味合影
+                  - generic [ref=e135]:
+                    - button "重命名" [ref=e136]:
+                      - img [ref=e137]
+                    - button "创建副本" [ref=e140]:
+                      - img [ref=e141]
+                    - button "删除" [ref=e144]:
+                      - img [ref=e145]
+                - generic [ref=e149]: 主题/人物
+              - generic [ref=e150] [cursor=pointer]:
+                - generic [ref=e151]:
+                  - generic [ref=e153]: 杂志大片
+                  - generic [ref=e154]:
+                    - button "重命名" [ref=e155]:
+                      - img [ref=e156]
+                    - button "创建副本" [ref=e159]:
+                      - img [ref=e160]
+                    - button "删除" [ref=e163]:
+                      - img [ref=e164]
+                - generic [ref=e168]: 主题/人物
+              - generic [ref=e169] [cursor=pointer]:
+                - generic [ref=e170]:
+                  - generic [ref=e172]: 漫画人物成真
+                  - generic [ref=e173]:
+                    - button "重命名" [ref=e174]:
+                      - img [ref=e175]
+                    - button "创建副本" [ref=e178]:
+                      - img [ref=e179]
+                    - button "删除" [ref=e182]:
+                      - img [ref=e183]
+                - generic [ref=e187]: 主题/人物
+              - generic [ref=e188] [cursor=pointer]:
+                - generic [ref=e189]:
+                  - generic [ref=e191]: 3x3 摄影网格出格版
+                  - generic [ref=e192]:
+                    - button "重命名" [ref=e193]:
+                      - img [ref=e194]
+                    - button "创建副本" [ref=e197]:
+                      - img [ref=e198]
+                    - button "删除" [ref=e201]:
+                      - img [ref=e202]
+                - generic [ref=e206]: 主题/人物
+          - generic [ref=e207]:
+            - button "建筑" [ref=e208] [cursor=pointer]:
+              - img [ref=e209]
+              - img [ref=e211]
+              - generic [ref=e213]: 建筑
+            - generic [ref=e215]:
+              - generic [ref=e216] [cursor=pointer]:
+                - generic [ref=e217]:
+                  - generic [ref=e219]: 可视化企业成长之路
+                  - generic [ref=e220]:
+                    - button "重命名" [ref=e221]:
+                      - img [ref=e222]
+                    - button "创建副本" [ref=e225]:
+                      - img [ref=e226]
+                    - button "删除" [ref=e229]:
+                      - img [ref=e230]
+                - generic [ref=e234]: 主题/建筑
+              - generic [ref=e235] [cursor=pointer]:
+                - generic [ref=e236]:
+                  - generic [ref=e238]: 可视化艺术成长之路
+                  - generic [ref=e239]:
+                    - button "重命名" [ref=e240]:
+                      - img [ref=e241]
+                    - button "创建副本" [ref=e244]:
+                      - img [ref=e245]
+                    - button "删除" [ref=e248]:
+                      - img [ref=e249]
+                - generic [ref=e253]: 主题/建筑
+          - generic [ref=e254]:
+            - button "产品" [ref=e255] [cursor=pointer]:
+              - img [ref=e256]
+              - img [ref=e258]
+              - generic [ref=e260]: 产品
+            - generic [ref=e263] [cursor=pointer]:
+              - generic [ref=e264]:
+                - generic [ref=e266]: 设计大师的产品设计
+                - generic [ref=e267]:
+                  - button "重命名" [ref=e268]:
+                    - img [ref=e269]
+                  - button "创建副本" [ref=e272]:
+                    - img [ref=e273]
+                  - button "删除" [ref=e276]:
+                    - img [ref=e277]
+              - generic [ref=e281]: 主题/产品
+      - generic [ref=e282]:
+        - button "风格" [ref=e283] [cursor=pointer]:
+          - img [ref=e284]
+          - img [ref=e286]
+          - generic [ref=e288]: 风格
+        - generic [ref=e290]:
+          - generic [ref=e291]:
+            - button "卡通" [ref=e292] [cursor=pointer]:
+              - img [ref=e293]
+              - img [ref=e295]
+              - generic [ref=e297]: 卡通
+            - generic [ref=e299]:
+              - generic [ref=e300] [cursor=pointer]:
+                - generic [ref=e301]:
+                  - generic [ref=e303]: 角色概念分解图
+                  - generic [ref=e304]:
+                    - button "重命名" [ref=e305]:
+                      - img [ref=e306]
+                    - button "创建副本" [ref=e309]:
+                      - img [ref=e310]
+                    - button "删除" [ref=e313]:
+                      - img [ref=e314]
+                - generic [ref=e317]:
+                  - generic [ref=e318]: 主题/人物
+                  - generic [ref=e319]: 风格/卡通
+              - generic [ref=e320] [cursor=pointer]:
+                - generic [ref=e321]:
+                  - generic [ref=e323]: 经典场景微缩复刻
+                  - generic [ref=e324]:
+                    - button "重命名" [ref=e325]:
+                      - img [ref=e326]
+                    - button "创建副本" [ref=e329]:
+                      - img [ref=e330]
+                    - button "删除" [ref=e333]:
+                      - img [ref=e334]
+                - generic [ref=e338]: 风格/卡通
+              - generic [ref=e339] [cursor=pointer]:
+                - generic [ref=e340]:
+                  - generic [ref=e342]: 窗边书桌微缩场景
+                  - generic [ref=e343]:
+                    - button "重命名" [ref=e344]:
+                      - img [ref=e345]
+                    - button "创建副本" [ref=e348]:
+                      - img [ref=e349]
+                    - button "删除" [ref=e352]:
+                      - img [ref=e353]
+                - generic [ref=e357]: 风格/卡通
+          - generic [ref=e358]:
+            - button "摄影" [ref=e359] [cursor=pointer]:
+              - img [ref=e360]
+              - img [ref=e362]
+              - generic [ref=e364]: 摄影
+            - generic [ref=e366]:
+              - generic [ref=e367] [cursor=pointer]:
+                - generic [ref=e368]:
+                  - generic [ref=e370]: 极端鱼眼都市奇观
+                  - generic [ref=e371]:
+                    - button "重命名" [ref=e372]:
+                      - img [ref=e373]
+                    - button "创建副本" [ref=e376]:
+                      - img [ref=e377]
+                    - button "删除" [ref=e380]:
+                      - img [ref=e381]
+                - generic [ref=e385]: 风格/摄影
+              - generic [ref=e386] [cursor=pointer]:
+                - generic [ref=e387]:
+                  - generic [ref=e389]: 雨滴定格艺术
+                  - generic [ref=e390]:
+                    - button "重命名" [ref=e391]:
+                      - img [ref=e392]
+                    - button "创建副本" [ref=e395]:
+                      - img [ref=e396]
+                    - button "删除" [ref=e399]:
+                      - img [ref=e400]
+                - generic [ref=e404]: 风格/摄影
+      - generic [ref=e405]:
+        - button "用途" [ref=e406] [cursor=pointer]:
+          - img [ref=e407]
+          - img [ref=e409]
+          - generic [ref=e411]: 用途
+        - generic [ref=e414]:
+          - button "创意" [ref=e415] [cursor=pointer]:
+            - img [ref=e416]
+            - img [ref=e418]
+            - generic [ref=e420]: 创意
+          - generic [ref=e423] [cursor=pointer]:
+            - generic [ref=e424]:
+              - generic [ref=e426]: 历史名人的朋友圈
+              - generic [ref=e427]:
+                - button "重命名" [ref=e428]:
+                  - img [ref=e429]
+                - button "创建副本" [ref=e432]:
+                  - img [ref=e433]
+                - button "删除" [ref=e436]:
+                  - img [ref=e437]
+            - generic [ref=e441]: 用途/创意
+    - button "新建模版" [ref=e443] [cursor=pointer]:
+      - img [ref=e444]
+      - generic [ref=e445]: 新建模版
+  - main [ref=e447]:
+    - generic [ref=e448]:
+      - generic [ref=e449]:
+        - img [ref=e451]
+        - generic [ref=e454]:
+          - heading "角色概念分解图" [level=2] [ref=e455]
+          - generic [ref=e456]:
+            - paragraph [ref=e457]: by 官方
+            - generic [ref=e458]:
+              - generic [ref=e459]: 主题/人物
+              - generic [ref=e460]: 风格/卡通
+      - generic [ref=e461]:
+        - button "v1" [ref=e463] [cursor=pointer]:
+          - img [ref=e464]
+          - text: v1
+        - button [ref=e469] [cursor=pointer]:
+          - img [ref=e470]
+        - button "copy" [ref=e472] [cursor=pointer]:
+          - img [ref=e473]
+          - text: copy
+    - generic [ref=e476]:
+      - paragraph [ref=e480]: "### Role (角色设定) 你是一位顶尖的 {{role}}，擅长制作详尽的角色设定图（Character Sheet）。你具备“像素级拆解”的能力，能够透视角色的穿着层级、捕捉微表情变化，并将与其相关的物品进行具象化还原。你特别擅长通过 {{subject}} 的私密物品、随身物件和生活细节来侧面丰满人物性格与背景故事。 ### Task (任务目标) 根据用户上传或描述的主体形象，生成一张**“全景式角色深度概念分解图”**。该图片必须包含 {{layout_focus}}，并在其周围环绕展示该人物的服装分层、不同表情、核心道具、材质特写，以及极具生活气息的私密与随身物品展示。 ### Visual Guidelines (视觉规范) **1. 构图布局 (Layout):** - **中心位 (Center):** 放置角色的 {{layout_focus}}，作为视觉锚点。 - **环绕位 (Surroundings):** 在中心人物四周空白处，有序排列拆解后的元素。 - **视觉引导 (Connectors):** 使用{{connectors}}，将周边的拆解物品与中心人物的对应部位或所属区域连接起来。 **2. 拆解内容 (Deconstruction Details):** - **服装分层 (Clothing Layers):** 将角色的服装拆分为单品展示 - **私密内着拆解:** 独立展示角色的内层衣物，重点突出设计感与材质。例如： {{underwear_style}} （展示细节与剪裁）。 - **表情集 (Expression Sheet):** 在角落绘制 3-4 个不同的头部特写，展示不同的情绪，如： {{expressions}} 。 - **材质特写 (Texture & Zoom):** 选取关键部位进行放大特写. 例如： {{texture_zoom}} ，增加对小物件材质的描绘。 - **动作:** 绘制特殊的动作和表情，例如：{{action_detail}}，增加动作的深度刻画。 - **特殊视角:** 绘制从某种特殊场景下拍摄的特殊视角，例如：{{special_view}} - **关联物品 (Related Items):** - **随身包袋与内容物:** 绘制 {{bag_content}}，并将其“打开”，展示散落在旁的物品。 - **美妆与护理:** 展示 {{cosmetics}}。 - **私密生活物件:** 具象化角色隐藏面的物品。根据角色性格可能包括： {{private_items}}，需以一种设计图的客观视角呈现。 **3.风格与注释 (Style & Annotations):** - **画风:** {{art_style}}，线条干净利落。 - **背景:** {{background_style}}，营造设计手稿的氛围。 - **文字说明:** 在每个拆解元素旁模拟手写注释，简要说明材质或品牌/型号暗示。 ### Workflow (执行逻辑) 1. 分析主体的核心特征、穿着风格及潜在性格。 2. 提取可拆解的一级元素（外套、鞋子、大表情）。 3. 脑补并设计二级深度元素（她内衣穿什么风格？包里装什么？独处时用什么？）。 4. 生成一张包含所有这些元素的组合图，确保透视准确，光影统一，注释清晰。 5. 使用中文，高清输出。"
+      - generic [ref=e481]:
+        - generic [ref=e482]:
+          - heading "notes" [level=3] [ref=e483]
+          - generic [ref=e484]:
+            - button "save_notes" [ref=e485] [cursor=pointer]:
+              - img [ref=e486]
+              - text: save_notes
+            - button [ref=e490] [cursor=pointer]:
+              - img [ref=e491]
+        - generic [ref=e496]:
+          - generic [ref=e497]:
+            - button [ref=e498] [cursor=pointer]:
+              - img [ref=e499]
+            - button [ref=e502] [cursor=pointer]:
+              - img [ref=e503]
+            - button [ref=e505] [cursor=pointer]:
+              - img [ref=e506]
+            - button [ref=e507] [cursor=pointer]:
+              - img [ref=e508]
+            - button [ref=e511] [cursor=pointer]:
+              - img [ref=e512]
+            - button [ref=e516] [cursor=pointer]:
+              - img [ref=e517]
+          - paragraph [ref=e522]
+  - generic [ref=e524]:
+    - generic [ref=e527]:
+      - generic [ref=e528]:
+        - generic [ref=e529]:
+          - img [ref=e531]
+          - heading "词库配置" [level=2] [ref=e534]
+        - button "管理分类" [ref=e535] [cursor=pointer]:
+          - img [ref=e536]
+          - text: 管理分类
+      - paragraph [ref=e537]: 所有模版共享同一套词库
+    - generic [ref=e539]:
+      - generic [ref=e540]:
+        - generic [ref=e541] [cursor=pointer]:
+          - img [ref=e543]
+          - heading "人物 10" [level=3] [ref=e545]:
+            - text: 人物
+            - generic [ref=e547]: "10"
+        - generic [ref=e548]:
+          - generic [ref=e552] [cursor=pointer]:
+            - generic [ref=e553]:
+              - img [ref=e555]
+              - generic [ref=e557]:
+                - generic [ref=e558]: 角色身份
+                - code [ref=e559]: "{{role}}"
+            - button "插入" [ref=e561]:
+              - img [ref=e562]
+          - generic [ref=e566] [cursor=pointer]:
+            - generic [ref=e567]:
+              - img [ref=e569]
+              - generic [ref=e571]:
+                - generic [ref=e572]: 主体对象
+                - code [ref=e573]: "{{subject}}"
+            - button "插入" [ref=e575]:
+              - img [ref=e576]
+          - generic [ref=e580] [cursor=pointer]:
+            - generic [ref=e581]:
+              - img [ref=e583]
+              - generic [ref=e585]:
+                - generic [ref=e586]: 合影角色
+                - code [ref=e587]: "{{character_companion}}"
+            - button "插入" [ref=e589]:
+              - img [ref=e590]
+          - generic [ref=e594] [cursor=pointer]:
+            - generic [ref=e595]:
+              - img [ref=e597]
+              - generic [ref=e599]:
+                - generic [ref=e600]: 表情集
+                - code [ref=e601]: "{{expressions}}"
+            - button "插入" [ref=e603]:
+              - img [ref=e604]
+          - generic [ref=e608] [cursor=pointer]:
+            - generic [ref=e609]:
+              - img [ref=e611]
+              - generic [ref=e613]:
+                - generic [ref=e614]: 人物原创性
+                - code [ref=e615]: "{{character_originality}}"
+            - button "插入" [ref=e617]:
+              - img [ref=e618]
+          - generic [ref=e622] [cursor=pointer]:
+            - generic [ref=e623]:
+              - img [ref=e625]
+              - generic [ref=e627]:
+                - generic [ref=e628]: 人物组合
+                - code [ref=e629]: "{{character_groups}}"
+            - button "插入" [ref=e631]:
+              - img [ref=e632]
+          - generic [ref=e636] [cursor=pointer]:
+            - generic [ref=e637]:
+              - img [ref=e639]
+              - generic [ref=e641]:
+                - generic [ref=e642]: 角色
+                - code [ref=e643]: "{{character_name}}"
+            - button "插入" [ref=e645]:
+              - img [ref=e646]
+          - generic [ref=e650] [cursor=pointer]:
+            - generic [ref=e651]:
+              - img [ref=e653]
+              - generic [ref=e655]:
+                - generic [ref=e656]: 怪兽元素
+                - code [ref=e657]: "{{monster_element}}"
+            - button "插入" [ref=e659]:
+              - img [ref=e660]
+          - generic [ref=e664] [cursor=pointer]:
+            - generic [ref=e665]:
+              - img [ref=e667]
+              - generic [ref=e669]:
+                - generic [ref=e670]: 怪兽特征
+                - code [ref=e671]: "{{monster_feature}}"
+            - button "插入" [ref=e673]:
+              - img [ref=e674]
+          - generic [ref=e678] [cursor=pointer]:
+            - generic [ref=e679]:
+              - img [ref=e681]
+              - generic [ref=e683]:
+                - generic [ref=e684]: 设计师
+                - code [ref=e685]: "{{designer}}"
+            - button "插入" [ref=e687]:
+              - img [ref=e688]
+          - button "创建新变量组" [ref=e689] [cursor=pointer]:
+            - img [ref=e690]
+            - generic [ref=e691]: 创建新变量组
+      - generic [ref=e692]:
+        - generic [ref=e693] [cursor=pointer]:
+          - img [ref=e695]
+          - heading "物品 13" [level=3] [ref=e697]:
+            - text: 物品
+            - generic [ref=e699]: "13"
+        - generic [ref=e700]:
+          - generic [ref=e704] [cursor=pointer]:
+            - generic [ref=e705]:
+              - img [ref=e707]
+              - generic [ref=e709]:
+                - generic [ref=e710]: 私密内着拆解
+                - code [ref=e711]: "{{underwear_style}}"
+            - button "插入" [ref=e713]:
+              - img [ref=e714]
+          - generic [ref=e718] [cursor=pointer]:
+            - generic [ref=e719]:
+              - img [ref=e721]
+              - generic [ref=e723]:
+                - generic [ref=e724]: 人物服饰
+                - code [ref=e725]: "{{clothing}}"
+            - button "插入" [ref=e727]:
+              - img [ref=e728]
+          - generic [ref=e732] [cursor=pointer]:
+            - generic [ref=e733]:
+              - img [ref=e735]
+              - generic [ref=e737]:
+                - generic [ref=e738]: 男性服饰
+                - code [ref=e739]: "{{clothing_male}}"
+            - button "插入" [ref=e741]:
+              - img [ref=e742]
+          - generic [ref=e746] [cursor=pointer]:
+            - generic [ref=e747]:
+              - img [ref=e749]
+              - generic [ref=e751]:
+                - generic [ref=e752]: 女性服饰
+                - code [ref=e753]: "{{clothing_female}}"
+            - button "插入" [ref=e755]:
+              - img [ref=e756]
+          - generic [ref=e760] [cursor=pointer]:
+            - generic [ref=e761]:
+              - img [ref=e763]
+              - generic [ref=e765]:
+                - generic [ref=e766]: 随身包袋
+                - code [ref=e767]: "{{bag_content}}"
+            - button "插入" [ref=e769]:
+              - img [ref=e770]
+          - generic [ref=e774] [cursor=pointer]:
+            - generic [ref=e775]:
+              - img [ref=e777]
+              - generic [ref=e779]:
+                - generic [ref=e780]: 美妆与护理
+                - code [ref=e781]: "{{cosmetics}}"
+            - button "插入" [ref=e783]:
+              - img [ref=e784]
+          - generic [ref=e788] [cursor=pointer]:
+            - generic [ref=e789]:
+              - img [ref=e791]
+              - generic [ref=e793]:
+                - generic [ref=e794]: 私密生活物件
+                - code [ref=e795]: "{{private_items}}"
+            - button "插入" [ref=e797]:
+              - img [ref=e798]
+          - generic [ref=e802] [cursor=pointer]:
+            - generic [ref=e803]:
+              - img [ref=e805]
+              - generic [ref=e807]:
+                - generic [ref=e808]: 穿搭解构
+                - code [ref=e809]: "{{fashion_deconstruct}}"
+            - button "插入" [ref=e811]:
+              - img [ref=e812]
+          - generic [ref=e816] [cursor=pointer]:
+            - generic [ref=e817]:
+              - img [ref=e819]
+              - generic [ref=e821]:
+                - generic [ref=e822]: 互动公仔
+                - code [ref=e823]: "{{toy_companion}}"
+            - button "插入" [ref=e825]:
+              - img [ref=e826]
+          - generic [ref=e830] [cursor=pointer]:
+            - generic [ref=e831]:
+              - img [ref=e833]
+              - generic [ref=e835]:
+                - generic [ref=e836]: 核心贴纸
+                - code [ref=e837]: "{{sticker_core}}"
+            - button "插入" [ref=e839]:
+              - img [ref=e840]
+          - generic [ref=e844] [cursor=pointer]:
+            - generic [ref=e845]:
+              - img [ref=e847]
+              - generic [ref=e849]:
+                - generic [ref=e850]: 装饰元素
+                - code [ref=e851]: "{{sticker_decor}}"
+            - button "插入" [ref=e853]:
+              - img [ref=e854]
+          - generic [ref=e858] [cursor=pointer]:
+            - generic [ref=e859]:
+              - img [ref=e861]
+              - generic [ref=e863]:
+                - generic [ref=e864]: 校服样式
+                - code [ref=e865]: "{{school_uniform}}"
+            - button "插入" [ref=e867]:
+              - img [ref=e868]
+          - generic [ref=e872] [cursor=pointer]:
+            - generic [ref=e873]:
+              - img [ref=e875]
+              - generic [ref=e877]:
+                - generic [ref=e878]: 设计物品
+                - code [ref=e879]: "{{design_item}}"
+            - button "插入" [ref=e881]:
+              - img [ref=e882]
+          - button "创建新变量组" [ref=e883] [cursor=pointer]:
+            - img [ref=e884]
+            - generic [ref=e885]: 创建新变量组
+      - generic [ref=e886]:
+        - generic [ref=e887] [cursor=pointer]:
+          - img [ref=e889]
+          - heading "动作 4" [level=3] [ref=e891]:
+            - text: 动作
+            - generic [ref=e893]: "4"
+        - generic [ref=e894]:
+          - generic [ref=e898] [cursor=pointer]:
+            - generic [ref=e899]:
+              - img [ref=e901]
+              - generic [ref=e903]:
+                - generic [ref=e904]: 九宫格动作
+                - code [ref=e905]: "{{grid_pose}}"
+            - button "插入" [ref=e907]:
+              - img [ref=e908]
+          - generic [ref=e912] [cursor=pointer]:
+            - generic [ref=e913]:
+              - img [ref=e915]
+              - generic [ref=e917]:
+                - generic [ref=e918]: 动作细节
+                - code [ref=e919]: "{{action_detail}}"
+            - button "插入" [ref=e921]:
+              - img [ref=e922]
+          - generic [ref=e926] [cursor=pointer]:
+            - generic [ref=e927]:
+              - img [ref=e929]
+              - generic [ref=e931]:
+                - generic [ref=e932]: 互动姿势
+                - code [ref=e933]: "{{action_pose}}"
+            - button "插入" [ref=e935]:
+              - img [ref=e936]
+          - generic [ref=e940] [cursor=pointer]:
+            - generic [ref=e941]:
+              - img [ref=e943]
+              - generic [ref=e945]:
+                - generic [ref=e946]: 动态动作
+                - code [ref=e947]: "{{dynamic_action}}"
+            - button "插入" [ref=e949]:
+              - img [ref=e950]
+          - button "创建新变量组" [ref=e951] [cursor=pointer]:
+            - img [ref=e952]
+            - generic [ref=e953]: 创建新变量组
+      - generic [ref=e954]:
+        - generic [ref=e955] [cursor=pointer]:
+          - img [ref=e957]
+          - heading "地点 10" [level=3] [ref=e959]:
+            - text: 地点
+            - generic [ref=e961]: "10"
+        - generic [ref=e962]:
+          - generic [ref=e966] [cursor=pointer]:
+            - generic [ref=e967]:
+              - img [ref=e969]
+              - generic [ref=e971]:
+                - generic [ref=e972]: 社交媒体
+                - code [ref=e973]: "{{social_media}}"
+            - button "插入" [ref=e975]:
+              - img [ref=e976]
+          - generic [ref=e980] [cursor=pointer]:
+            - generic [ref=e981]:
+              - img [ref=e983]
+              - generic [ref=e985]:
+                - generic [ref=e986]: 经典场景
+                - code [ref=e987]: "{{classic_scene}}"
+            - button "插入" [ref=e989]:
+              - img [ref=e990]
+          - generic [ref=e994] [cursor=pointer]:
+            - generic [ref=e995]:
+              - img [ref=e997]
+              - generic [ref=e999]:
+                - generic [ref=e1000]: 文字位置
+                - code [ref=e1001]: "{{position}}"
+            - button "插入" [ref=e1003]:
+              - img [ref=e1004]
+          - generic [ref=e1008] [cursor=pointer]:
+            - generic [ref=e1009]:
+              - img [ref=e1011]
+              - generic [ref=e1013]:
+                - generic [ref=e1014]: 公司
+                - code [ref=e1015]: "{{company}}"
+            - button "插入" [ref=e1017]:
+              - img [ref=e1018]
+          - generic [ref=e1022] [cursor=pointer]:
+            - generic [ref=e1023]:
+              - img [ref=e1025]
+              - generic [ref=e1027]:
+                - generic [ref=e1028]: 背景场景
+                - code [ref=e1029]: "{{background_scene}}"
+            - button "插入" [ref=e1031]:
+              - img [ref=e1032]
+          - generic [ref=e1036] [cursor=pointer]:
+            - generic [ref=e1037]:
+              - img [ref=e1039]
+              - generic [ref=e1041]:
+                - generic [ref=e1042]: 城市地点
+                - code [ref=e1043]: "{{urban_location}}"
+            - button "插入" [ref=e1045]:
+              - img [ref=e1046]
+          - generic [ref=e1050] [cursor=pointer]:
+            - generic [ref=e1051]:
+              - img [ref=e1053]
+              - generic [ref=e1055]:
+                - generic [ref=e1056]: 建筑群
+                - code [ref=e1057]: "{{building_cluster}}"
+            - button "插入" [ref=e1059]:
+              - img [ref=e1060]
+          - generic [ref=e1064] [cursor=pointer]:
+            - generic [ref=e1065]:
+              - img [ref=e1067]
+              - generic [ref=e1069]:
+                - generic [ref=e1070]: 扭曲城市
+                - code [ref=e1071]: "{{distorted_city}}"
+            - button "插入" [ref=e1073]:
+              - img [ref=e1074]
+          - generic [ref=e1078] [cursor=pointer]:
+            - generic [ref=e1079]:
+              - img [ref=e1081]
+              - generic [ref=e1083]:
+                - generic [ref=e1084]: 旅游地点
+                - code [ref=e1085]: "{{travel_location}}"
+            - button "插入" [ref=e1087]:
+              - img [ref=e1088]
+          - generic [ref=e1092] [cursor=pointer]:
+            - generic [ref=e1093]:
+              - img [ref=e1095]
+              - generic [ref=e1097]:
+                - generic [ref=e1098]: 漫画场景
+                - code [ref=e1099]: "{{comic_scene}}"
+            - button "插入" [ref=e1101]:
+              - img [ref=e1102]
+          - button "创建新变量组" [ref=e1103] [cursor=pointer]:
+            - img [ref=e1104]
+            - generic [ref=e1105]: 创建新变量组
+      - generic [ref=e1106]:
+        - generic [ref=e1107] [cursor=pointer]:
+          - img [ref=e1109]
+          - heading "画面 16" [level=3] [ref=e1111]:
+            - text: 画面
+            - generic [ref=e1113]: "16"
+        - generic [ref=e1114]:
+          - generic [ref=e1118] [cursor=pointer]:
+            - generic [ref=e1119]:
+              - img [ref=e1121]
+              - generic [ref=e1123]:
+                - generic [ref=e1124]: 构图重心
+                - code [ref=e1125]: "{{layout_focus}}"
+            - button "插入" [ref=e1127]:
+              - img [ref=e1128]
+          - generic [ref=e1132] [cursor=pointer]:
+            - generic [ref=e1133]:
+              - img [ref=e1135]
+              - generic [ref=e1137]:
+                - generic [ref=e1138]: 拍摄角度
+                - code [ref=e1139]: "{{camera_angle}}"
+            - button "插入" [ref=e1141]:
+              - img [ref=e1142]
+          - generic [ref=e1146] [cursor=pointer]:
+            - generic [ref=e1147]:
+              - img [ref=e1149]
+              - generic [ref=e1151]:
+                - generic [ref=e1152]: 视觉引导
+                - code [ref=e1153]: "{{connectors}}"
+            - button "插入" [ref=e1155]:
+              - img [ref=e1156]
+          - generic [ref=e1160] [cursor=pointer]:
+            - generic [ref=e1161]:
+              - img [ref=e1163]
+              - generic [ref=e1165]:
+                - generic [ref=e1166]: 材质特写
+                - code [ref=e1167]: "{{texture_zoom}}"
+            - button "插入" [ref=e1169]:
+              - img [ref=e1170]
+          - generic [ref=e1174] [cursor=pointer]:
+            - generic [ref=e1175]:
+              - img [ref=e1177]
+              - generic [ref=e1179]:
+                - generic [ref=e1180]: 特殊视角
+                - code [ref=e1181]: "{{special_view}}"
+            - button "插入" [ref=e1183]:
+              - img [ref=e1184]
+          - generic [ref=e1188] [cursor=pointer]:
+            - generic [ref=e1189]:
+              - img [ref=e1191]
+              - generic [ref=e1193]:
+                - generic [ref=e1194]: 画风
+                - code [ref=e1195]: "{{art_style}}"
+            - button "插入" [ref=e1197]:
+              - img [ref=e1198]
+          - generic [ref=e1202] [cursor=pointer]:
+            - generic [ref=e1203]:
+              - img [ref=e1205]
+              - generic [ref=e1207]:
+                - generic [ref=e1208]: 背景风格
+                - code [ref=e1209]: "{{background_style}}"
+            - button "插入" [ref=e1211]:
+              - img [ref=e1212]
+          - generic [ref=e1216] [cursor=pointer]:
+            - generic [ref=e1217]:
+              - img [ref=e1219]
+              - generic [ref=e1221]:
+                - generic [ref=e1222]: 渲染风格
+                - code [ref=e1223]: "{{render_style}}"
+            - button "插入" [ref=e1225]:
+              - img [ref=e1226]
+          - generic [ref=e1230] [cursor=pointer]:
+            - generic [ref=e1231]:
+              - img [ref=e1233]
+              - generic [ref=e1235]:
+                - generic [ref=e1236]: 画幅比例
+                - code [ref=e1237]: "{{ratio}}"
+            - button "插入" [ref=e1239]:
+              - img [ref=e1240]
+          - generic [ref=e1244] [cursor=pointer]:
+            - generic [ref=e1245]:
+              - img [ref=e1247]
+              - generic [ref=e1249]:
+                - generic [ref=e1250]: 九宫格镜头
+                - code [ref=e1251]: "{{lens_param}}"
+            - button "插入" [ref=e1253]:
+              - img [ref=e1254]
+          - generic [ref=e1258] [cursor=pointer]:
+            - generic [ref=e1259]:
+              - img [ref=e1261]
+              - generic [ref=e1263]:
+                - generic [ref=e1264]: 灯光布置
+                - code [ref=e1265]: "{{lighting}}"
+            - button "插入" [ref=e1267]:
+              - img [ref=e1268]
+          - generic [ref=e1272] [cursor=pointer]:
+            - generic [ref=e1273]:
+              - img [ref=e1275]
+              - generic [ref=e1277]:
+                - generic [ref=e1278]: 镜头类型
+                - code [ref=e1279]: "{{lens_type}}"
+            - button "插入" [ref=e1281]:
+              - img [ref=e1282]
+          - generic [ref=e1286] [cursor=pointer]:
+            - generic [ref=e1287]:
+              - img [ref=e1289]
+              - generic [ref=e1291]:
+                - generic [ref=e1292]: 手指甲细节
+                - code [ref=e1293]: "{{fingernail_detail}}"
+            - button "插入" [ref=e1295]:
+              - img [ref=e1296]
+          - generic [ref=e1300] [cursor=pointer]:
+            - generic [ref=e1301]:
+              - img [ref=e1303]
+              - generic [ref=e1305]:
+                - generic [ref=e1306]: 灯光氛围
+                - code [ref=e1307]: "{{lighting_atmosphere}}"
+            - button "插入" [ref=e1309]:
+              - img [ref=e1310]
+          - generic [ref=e1314] [cursor=pointer]:
+            - generic [ref=e1315]:
+              - img [ref=e1317]
+              - generic [ref=e1319]:
+                - generic [ref=e1320]: 阴影对比
+                - code [ref=e1321]: "{{shadow_contrast}}"
+            - button "插入" [ref=e1323]:
+              - img [ref=e1324]
+          - generic [ref=e1328] [cursor=pointer]:
+            - generic [ref=e1329]:
+              - img [ref=e1331]
+              - generic [ref=e1333]:
+                - generic [ref=e1334]: 雨水形象
+                - code [ref=e1335]: "{{rain_shape}}"
+            - button "插入" [ref=e1337]:
+              - img [ref=e1338]
+          - button "创建新变量组" [ref=e1339] [cursor=pointer]:
+            - img [ref=e1340]
+            - generic [ref=e1341]: 创建新变量组
+      - generic [ref=e1342]:
+        - generic [ref=e1343] [cursor=pointer]:
+          - img [ref=e1345]
+          - heading "其他 2" [level=3] [ref=e1347]:
+            - text: 其他
+            - generic [ref=e1349]: "2"
+        - generic [ref=e1350]:
+          - generic [ref=e1354] [cursor=pointer]:
+            - generic [ref=e1355]:
+              - img [ref=e1357]
+              - generic [ref=e1359]:
+                - generic [ref=e1360]: 剧名
+                - code [ref=e1361]: "{{show_name}}"
+            - button "插入" [ref=e1363]:
+              - img [ref=e1364]
+          - generic [ref=e1368] [cursor=pointer]:
+            - generic [ref=e1369]:
+              - img [ref=e1371]
+              - generic [ref=e1373]:
+                - generic [ref=e1374]: 艺术门类
+                - code [ref=e1375]: "{{art_type}}"
+            - button "插入" [ref=e1377]:
+              - img [ref=e1378]
+          - button "创建新变量组" [ref=e1379] [cursor=pointer]:
+            - img [ref=e1380]
+            - generic [ref=e1381]: 创建新变量组
+```

@@ -25,6 +25,14 @@ const VisualEditor = React.forwardRef((
 ) => {
   const isUpdatingFromOutside = useRef(false);
 
+  // Pre-process content to convert {{variables}} into nodes
+  const preprocessContent = (text) => {
+    if (!text) return '';
+    return text.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, key) => {
+      return `<span data-variable-key="${key}">${match}</span>`;
+    });
+  };
+
   // Function to serialize the editor's document state back to a plain text string.
   const serializeStateToString = (state) => {
     let text = '';
@@ -32,7 +40,7 @@ const VisualEditor = React.forwardRef((
       node.content.forEach(child => {
         if (child.type.name === 'text') {
           text += child.text;
-        } else if (child.type.name === 'tiptapVariable') {
+        } else if (child.type.name === 'variable') { // Changed from tiptapVariable
           text += `{{${child.attrs['data-variable-key']}}}`;
         }
       });
@@ -47,12 +55,11 @@ const VisualEditor = React.forwardRef((
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable default key mappings that might interfere
-        history: false, // We'll manage history at the app level if needed
+        history: false,
       }),
-      VariableConversion, // Use our extended version with input rules
+      TiptapVariable, // Use the base TiptapVariable now
     ],
-    content: value, // Initial content
+    content: preprocessContent(value), // Use pre-processed content
     editorProps: {
       attributes: {
         class: 'p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words focus:outline-none w-full h-full',
@@ -70,20 +77,22 @@ const VisualEditor = React.forwardRef((
 
   // Effect to sync editor content when the `value` prop changes from the outside.
   useEffect(() => {
-    if (editor && value !== serializeStateToString(editor.state)) {
-      isUpdatingFromOutside.current = true;
-      editor.commands.setContent(value, false); // `false` to not emit an update
-      isUpdatingFromOutside.current = false;
+    if (editor) {
+      const currentEditorValue = serializeStateToString(editor.state);
+      if (value !== currentEditorValue) {
+        isUpdatingFromOutside.current = true;
+        const newContent = preprocessContent(value);
+        editor.commands.setContent(newContent, false);
+        isUpdatingFromOutside.current = false;
+      }
     }
   }, [value, editor]);
 
-  // Expose an imperative handle to the parent component.
-  // This allows the parent to call `insertVariable` directly on the editor instance.
   useImperativeHandle(ref, () => ({
     insertVariable: (key) => {
       if (editor) {
-        // Insert the variable as text, which will be automatically converted by our input rule.
-        editor.chain().focus().insertContent(`{{${key}}}`).run();
+        const node = `<span data-variable-key="${key}">{{${key}}}</span>`;
+        editor.chain().focus().insertContent(node).run();
       }
     },
   }), [editor]);
@@ -94,7 +103,7 @@ const VisualEditor = React.forwardRef((
 
   return (
     <EditorContext.Provider value={editorContextValue}>
-      <div className="relative w-full h-full overflow-y-auto custom-scrollbar">
+      <div className="relative w-full h-full overflow-y-auto custom-scrollbar pb-48">
         <EditorContent editor={editor} />
       </div>
     </EditorContext.Provider>

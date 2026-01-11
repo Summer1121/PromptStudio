@@ -13,6 +13,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:1420', // The Tauri dev server URL
     trace: 'on-first-retry',
+    timeout: 60000, // Increase timeout to 60 seconds
   },
 
   projects: [

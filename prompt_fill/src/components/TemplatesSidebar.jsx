@@ -5,7 +5,9 @@ import Directory from './Directory';
 import { TagFilterDropdown } from './TagFilterDropdown';
 
 export const TemplatesSidebar = React.memo(({
-  templates, // Now a tree structure
+  tagTree,
+  displayTemplates,
+  templates,
   activeTemplateId,
   drafts,
   setActiveTemplateId,
@@ -37,12 +39,15 @@ export const TemplatesSidebar = React.memo(({
   setRandomSeed,
   setDiscoveryView,
   setIsSettingsOpen,
-  tagTree,
   onManageTags,
   isOpenDirectory,
   toggleDirectory,
   collapseAllDirectories
 }) => {
+
+  const uncategorizedTemplates = displayTemplates.filter(
+    (t) => !t.tags || t.tags.length === 0
+  );
 
   return (
     <div className="relative flex flex-col flex-shrink-0 h-full w-full border-r border-gray-200 bg-white overflow-hidden">
@@ -103,12 +108,14 @@ export const TemplatesSidebar = React.memo(({
 
         <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
             <div className="space-y-4">
-              {Object.entries(templates).map(([name, node]) => (
+              {tagTree.map((node) => (
                 <Directory 
-                  key={name}
-                  name={name}
+                  key={node.name}
+                  name={node.name}
                   node={node}
-                  path={name}
+                  path={node.name}
+                  allTemplates={displayTemplates}
+                  level={0}
                   // Pass down all relevant props
                   {...{
                     activeTemplateId,
@@ -130,8 +137,35 @@ export const TemplatesSidebar = React.memo(({
                   }}
                 />
               ))}
+              {uncategorizedTemplates.length > 0 && (
+                <Directory
+                  name="uncategorized"
+                  node={{ templates: uncategorizedTemplates, children: {} }}
+                  path="uncategorized"
+                  allTemplates={displayTemplates}
+                   {...{
+                    activeTemplateId,
+                    drafts,
+                    setActiveTemplateId,
+                    onRenameTemplate,
+                    saveTemplateName,
+                    editingTemplateNameId,
+                    setEditingTemplateNameId,
+                    tempTemplateName,
+                    setTempTemplateName,
+                    language,
+                    onDuplicateTemplate,
+                    onDeleteTemplate,
+                    displayTag,
+                    t,
+                    isOpenDirectory,
+                    toggleDirectory
+                  }}
+                />
+              )}
             </div>
-        </div>        <div className="flex-shrink-0 p-4 border-t border-gray-200/50 bg-white">
+        </div>
+        <div className="flex-shrink-0 p-4 border-t border-gray-200/50 bg-white">
             <button onClick={onAddTemplate} className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg font-medium transition-all duration-300 bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-500/30">
                 <Plus size={16} />
                 <span>{t('new_template')}</span>

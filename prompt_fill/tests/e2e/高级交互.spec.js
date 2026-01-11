@@ -65,7 +65,7 @@ test.describe('高级交互与目录功能测试', () => {
 
     // Verify in "主题" directory
     const themeDirectory = page.locator('div:not(.ml-4)').filter({ has: page.getByRole('button', { name: '主题' }) });
-    const templateInTheme = themeDirectory.locator('.group.flex-col', { hasText: templateName });
+    const templateInTheme = themeDirectory.locator('.group.flex-col', { hasText: templateName }).first();
     await expect(templateInTheme).toBeVisible();
 
     // Verify in "风格" -> "卡通" directory
@@ -82,7 +82,7 @@ test.describe('高级交互与目录功能测试', () => {
 
   test('点击“一键收起”应折叠所有目录', async ({ page }) => {
     const themeDirectory = page.locator('div:not(.ml-4)').filter({ has: page.getByRole('button', { name: '主题' }) });
-    const themeContent = themeDirectory.locator('.grid');
+    const themeContent = themeDirectory.locator('.grid').first();
     await expect(themeContent).toBeVisible();
 
     await page.getByTitle('一键收起').click();
