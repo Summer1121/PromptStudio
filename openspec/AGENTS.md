@@ -2,6 +2,15 @@
 
 Instructions for AI coding assistants using OpenSpec for spec-driven development.
 
+## Language and Communication
+- Default to Simplified Chinese for all OpenSpec artifacts and interaction, including `proposal.md`, `design.md`, `tasks.md`, and spec/spec-delta `spec.md` files.
+- For tool compatibility, keep only OpenSpec structural tokens/headings in English:
+- Requirement/Scenario headings: `### Requirement:`, `#### Scenario:`
+- Requirement section headings: `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`
+- Scenario step keywords:` **GIVEN**`, `**WHEN**`, `**THEN**`, `**AND THEN**`
+- Normative keyword: `SHALL` (recommended; write the rest in Chinese, e.g. `系统 SHALL ...`)
+- Keep CLI commands, paths, and parameters as-is, and display them in code format (e.g., `openspec validate <id> --strict`).
+
 ## TL;DR Quick Checklist
 
 - Search existing work: `openspec spec list --long`, `openspec list` (use `rg` only for full-text search)
@@ -233,15 +242,6 @@ Minimal `design.md` skeleton:
 ## Open Questions
 - [...]
 ```
-
-### Language and Communication
-- Default to Simplified Chinese for all OpenSpec artifacts and interaction, including `proposal.md`, `design.md`, `tasks.md`, and spec/spec-delta `spec.md` files.
-- For tool compatibility, keep only OpenSpec structural tokens/headings in English:
-- Requirement/Scenario headings: `### Requirement:`, `#### Scenario:`
-- Requirement section headings: `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`
-- Scenario step keywords:` **GIVEN**`, `**WHEN**`, `**THEN**`, `**AND THEN**`
-- Normative keyword: `SHALL` (recommended; write the rest in Chinese, e.g. `系统 SHALL ...`)
-- Keep CLI commands, paths, and parameters as-is, and display them in code format (e.g., `openspec validate <id> --strict`).
 
 ### Critical: Scenario Formatting
 

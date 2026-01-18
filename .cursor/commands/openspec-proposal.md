@@ -1,6 +1,9 @@
-description = "Scaffold a new OpenSpec change and validate strictly."
-
-prompt = """
+---
+name: /openspec-proposal
+id: openspec-proposal
+category: OpenSpec
+description: Scaffold a new OpenSpec change and validate strictly.
+---
 <!-- OPENSPEC:START -->
 **Guardrails**
 - Favor straightforward, minimal implementations first and add complexity only when it is requested or clearly required.
@@ -23,4 +26,3 @@ prompt = """
 - Search existing requirements with `rg -n "Requirement:|Scenario:" openspec/specs` before writing new ones.
 - Explore the codebase with `rg <keyword>`, `ls`, or direct file reads so proposals align with current implementation realities.
 <!-- OPENSPEC:END -->
-"""
