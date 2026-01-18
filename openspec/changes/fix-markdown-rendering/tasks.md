@@ -1,6 +1,0 @@
-- [ ] **Capability: [Markdown Rendering](specs/markdown-rendering/spec.md)**
-- [ ] 1. **Integrate a Markdown extension:** Research and integrate a suitable Tiptap extension for Markdown support (e.g., a third-party one or a custom one using `markdown-it`).
-- [ ] 2. **Update Content Handling:** Modify `VisualEditor.jsx` to use `getHTML()` for serialization and `setContent()` with HTML for deserialization, replacing the current plain-text logic.
-- [ ] 3. **Preserve Variable Functionality:** Ensure the `TiptapVariable` extension and the `{{variable}}` syntax continue to work correctly alongside Markdown rendering.
-- [ ] 4. **Update E2E Tests:** Modify existing Playwright tests to assert that Markdown is rendered correctly in the editor.
-- [ ] 5. **Manual Verification:** Manually test various Markdown syntaxes (bold, italics, lists, code blocks) to ensure they are displayed correctly.
