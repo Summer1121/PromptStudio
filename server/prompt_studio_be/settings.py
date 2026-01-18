@@ -129,8 +129,8 @@ STATIC_URL = 'static/'
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:1420',
-    'http://127.0.0.1:1420',
+    'http://localhost:10981',
+    'http://127.0.0.1:10981',
 ]
 
 # Django REST Framework Configuration

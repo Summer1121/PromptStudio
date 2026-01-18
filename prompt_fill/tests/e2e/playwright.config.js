@@ -11,7 +11,7 @@ export default defineConfig({
     ['json', { outputFile: './output/test-results.json' }]
   ],
   use: {
-    baseURL: 'http://localhost:1420', // The Tauri dev server URL
+    baseURL: 'http://localhost:10981', // The Tauri dev server URL
     trace: 'on-first-retry',
     timeout: 60000, // Increase timeout to 60 seconds
   },
@@ -25,7 +25,7 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run tauri:dev', // Command to start the dev server
-    url: 'http://localhost:1420',
+    url: 'http://localhost:10981',
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',

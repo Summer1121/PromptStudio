@@ -8,7 +8,7 @@ export default defineConfig({
   clearScreen: false,
   // 让 Tauri 能够监听特定的端口
   server: {
-    port: 1420,
+    port: 10981,
     strictPort: true,
     host: true, // 保持原本的 --host 功能
   },

@@ -70,7 +70,7 @@ PromptStudio 是一个开源的提示词（Prompt）创作、管理与分享平�
     ```bash
     npm run dev
     ```
-    服务默认运行在 `http://localhost:1420/`。
+    服务默认运行在 `http://localhost:10981/`。
 
 4.  **启动桌面应用开发模式 (Tauri 版本)**:
     如果您希望以桌面应用的形式运行，并测试本地文件持久化功能：

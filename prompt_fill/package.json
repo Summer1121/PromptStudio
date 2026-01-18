@@ -11,12 +11,14 @@
     "preview": "vite preview",
     "tauri:dev": "npx tauri dev",
     "test:e2e": "npm run test:playwright",
-    "test:playwright": "playwright test --config ./tests/e2e/playwright.config.js"
+    "test:playwright": "playwright test --config ./tests/e2e/playwright.config.js",
+    "make": "node make.js"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/cli": "^2.9.6",
     "@tauri-apps/plugin-dialog": "^2.4.2",
+    "@tiptap/markdown": "^3.15.3",
     "@tiptap/react": "^3.14.0",
     "@tiptap/starter-kit": "^3.14.0",
     "diff": "^8.0.2",

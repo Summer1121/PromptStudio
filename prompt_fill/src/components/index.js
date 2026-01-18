@@ -20,3 +20,4 @@ export * from './Variable';
 export * from './VariableNode';
 export * from './VariablePicker';
 export * from './VisualEditor';
+export * from './PlainTextEditor';

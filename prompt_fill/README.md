@@ -99,6 +99,59 @@ Prompt Fill 现已迭代至 **v0.5.1** 版本。本项目初衷是解决 AI 绘�
 *   **macOS**: `start.command`
 *   **Windows**: `start.bat`
 
+### 使用 Makefile（可选）
+项目提供了 `Makefile` 和跨平台的 `make.js` 脚本来简化常用开发任务。
+
+**方法一：使用 make 命令（如果已安装 make）**
+```bash
+make help      # 查看所有命令
+make install   # 安装依赖
+make dev       # 启动开发服务器
+make build     # 构建生产版本
+```
+
+**方法二：使用 Node.js 脚本（跨平台，推荐）**
+```bash
+# Windows、macOS、Linux 都支持
+node make.js help      # 查看所有命令
+node make.js install   # 安装依赖
+node make.js dev       # 启动开发服务器
+node make.js build     # 构建生产版本
+```
+
+**方法三：使用 npm 脚本**
+```bash
+npm run make -- help      # 查看所有命令
+npm run make -- install   # 安装依赖
+npm run make -- dev       # 启动开发服务器
+npm run make -- build     # 构建生产版本
+```
+
+**方法四：在 PowerShell 中使用 make 命令（Windows）**
+```powershell
+# 一次性设置（只需运行一次）
+.\setup-powershell.ps1
+
+# 设置后，重新打开 PowerShell 或运行: . $PROFILE
+# 然后就可以直接使用 make 命令了：
+make help      # 查看所有命令
+make install   # 安装依赖
+make dev       # 启动开发服务器
+```
+
+或者在当前会话中临时加载：
+```powershell
+. .\make.ps1   # 加载 make 函数
+make help      # 使用 make 命令
+```
+
+**安装 make 工具（可选）**
+- Windows: `choco install make` 或 `scoop install make`
+- macOS: 通常已预装，或通过 Xcode Command Line Tools 安装
+- Linux: `sudo apt-get install make` (Ubuntu/Debian) 或 `sudo yum install make` (CentOS/RHEL)
+
+详细安装说明请参考 [MAKE_INSTALL.md](./MAKE_INSTALL.md)
+
 ## 📖 使用指南
 
 ### 第一步：管理分类 (Categories)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { confirm, message } from '@tauri-apps/plugin-dialog';
-import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor } from './components';
+import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
@@ -759,19 +759,22 @@ const App = () => {
                  onRestoreVersion={handleRestoreVersion}
                  onOpenDiff={() => setIsDiffViewOpen(true)}
                />
-                <div className="flex-grow relative h-full">
-                    <VisualEditor
-                        ref={editorRef}
-                        key={activeTemplate.id}
-                        value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
-                        banks={banks}
-                        categories={categories}
-                        onVariableClick={handleVariableClick}
-                        activeTemplate={activeTemplate}
-                        defaults={defaults}
-                        language={language}
-                        onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
-                    />
+                <div className="flex-grow relative h-full flex flex-col">
+                    {/* 纯文本编辑器 */}
+                    <div className="flex-1 relative overflow-hidden">
+                        <PlainTextEditor
+                            ref={editorRef}
+                            key={activeTemplate.id}
+                            value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
+                            banks={banks}
+                            categories={categories}
+                            onVariableClick={handleVariableClick}
+                            activeTemplate={activeTemplate}
+                            defaults={defaults}
+                            language={language}
+                            onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
+                        />
+                    </div>
                     <NotesEditor
                         notes={activeTemplate.notes}
                         onSaveNotes={onSaveNotes}
