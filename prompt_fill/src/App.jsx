@@ -129,9 +129,11 @@ const App = () => {
   
   // --- Data Persistence Layer (Tauri) ---
   useEffect(() => {
-    const loadData = async () => {
+      const loadData = async () => {
       const savedData = await readDataFile();
+      console.log('Loading data. Saved data exists:', !!savedData);
       if (savedData && savedData.templates && savedData.templates.length > 0) {
+        console.log('Loaded templates count:', savedData.templates.length);
         
         const migratedTemplates = savedData.templates.map(t => {
           const newTemplate = { ...t };
@@ -147,6 +149,8 @@ const App = () => {
 
           if (newTemplate.notes === undefined) {
             newTemplate.notes = "";
+          } else {
+            console.log(`Template ${t.id} notes length:`, newTemplate.notes?.length || 0);
           }
           return newTemplate;
         });
@@ -177,8 +181,15 @@ const App = () => {
   useEffect(() => {
     if (!dataLoaded) return;
     const handler = setTimeout(() => {
+      // 检查 templates 中是否包含 notes 字段
+      const templatesWithNotes = templates.map(t => ({
+        ...t,
+        notes: t.notes || '' // 确保 notes 字段存在
+      }));
+      console.log('Writing data file. Templates count:', templatesWithNotes.length);
+      console.log('Active template notes:', templatesWithNotes.find(t => t.id === activeTemplateId)?.notes?.substring(0, 50) || 'empty');
       writeDataFile({
-        templates,
+        templates: templatesWithNotes,
         banks,
         categories,
         defaults,
@@ -514,10 +525,14 @@ const App = () => {
     });
   };
 
-  const onSaveNotes = (notesContent) => {
+  const onSaveNotes = async (notesContent) => {
     if (activeTemplate) {
+      console.log('Saving notes for template:', activeTemplate.id, 'Content length:', notesContent?.length || 0);
       handleUpdateTemplate(activeTemplate.id, { notes: notesContent });
+      // 返回 Promise 以便 NotesEditor 可以显示保存状态
+      return Promise.resolve();
     }
+    return Promise.reject(new Error('No active template'));
   };
 
   const handleGenerate = async () => {
@@ -739,7 +754,7 @@ const App = () => {
         <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200 h-full"/>
         
         {/* Main Content */}
-        <main className="flex-1 flex flex-col relative z-10 h-full overflow-y-auto">
+        <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
            {activeTemplate ? (
              <>
                <EditorToolbar
@@ -778,6 +793,7 @@ const App = () => {
                     <NotesEditor
                         notes={activeTemplate.notes}
                         onSaveNotes={onSaveNotes}
+                        templateId={activeTemplateId}
                         t={t}
                     />
                 </div>
