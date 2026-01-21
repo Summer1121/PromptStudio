@@ -6,7 +6,11 @@ import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
 import { SettingsModal } from './components/SettingsModal';
 import { DiffView } from './components/DiffView';
+import { OptimizeEvalModal } from './components/OptimizeEvalModal';
 import { readDataFile, writeDataFile } from './services/tauri-service';
+import { invokeLlm, isLlmConfigured } from './services/llm-adapter';
+import { LLM_MODEL_CONFIG } from './constants/llm-config';
+import { OPTIMIZE_SYSTEM, buildOptimizeUserPrompt } from './constants/optimize-prompts';
 import { getLocalized } from './utils/helpers';
 import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAG_TREE } from './data/templates';
 import { INITIAL_BANKS, INITIAL_CATEGORIES, INITIAL_DEFAULTS } from './data/banks';
@@ -38,6 +42,11 @@ const App = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isDiffViewOpen, setIsDiffViewOpen] = useState(false);
+  const [optimizeSuggestedContent, setOptimizeSuggestedContent] = useState(null);
+  const [optimizeEvaluation, setOptimizeEvaluation] = useState(null);
+  const [isOptimizeEvalModalOpen, setIsOptimizeEvalModalOpen] = useState(false);
+  /** 'requesting'=已发请求等待响应，'optimizing'=已收到首包，模型生成中；null=空闲 */
+  const [optimizeStatus, setOptimizeStatus] = useState(null);
   
   // Sidebar filtering/sorting state
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,7 +171,10 @@ const App = () => {
         setLanguage(savedData.language || 'cn');
         setTemplateLanguage(savedData.templateLanguage || 'cn');
         setTagTree(savedData.tagTree || TEMPLATE_TAG_TREE);
-        setLlmSettings(savedData.llmSettings || {});
+        setLlmSettings((() => {
+          const s = savedData.llmSettings || {};
+          return { ...s, modelType: s.modelType || 'custom' };
+        })());
         
         const activeIdIsValid = migratedTemplates.some(t => t.id === savedData.activeTemplateId);
         setActiveTemplateId(activeIdIsValid ? savedData.activeTemplateId : (migratedTemplates[0]?.id || null));
@@ -390,20 +402,31 @@ const App = () => {
   const handleCopy = () => {
     if (!activeTemplate) return;
     const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
-    const parts = content.split(/(\s*\{\{[^\}\n]+\}\}\s*)/g);
-    const finalContent = parts.map((part, i) => {
-      if (part.startsWith('{{') && part.endsWith('}}')) {
-        const key = part.slice(2, -2).trim();
-        const bankKey = key.trim();
-        const selectionKey = `${activeTemplate.id}-${bankKey}-${i}`;
-        const selectionIndex = activeTemplate.selections?.[selectionKey];
-        if (selectionIndex !== undefined && banks[bankKey]) {
-          return getLocalized(banks[bankKey].options[selectionIndex], language);
-        }
-        return part; 
+    // 按出现顺序将 {{key}} 替换为所选值。selections 的 key 为 `${id}-${key}-${getPos()}`，
+    // 在纯字符串解析时没有 getPos，故用「同一 key 的出现次序」与「同 key 的 selection 按 pos 排序后的次序」对应。
+    const keyOccurrenceIndex = {};
+    const finalContent = content.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, key) => {
+      const bankKey = key.trim();
+      const bank = banks[bankKey];
+      if (!activeTemplate.selections) return match;
+      const selectionKeys = Object.keys(activeTemplate.selections).filter(
+        (sk) => sk.startsWith(`${activeTemplate.id}-${bankKey}-`)
+      );
+      selectionKeys.sort((a, b) => {
+        const posA = parseInt(a.split('-').pop(), 10);
+        const posB = parseInt(b.split('-').pop(), 10);
+        return (isNaN(posA) ? 0 : posA) - (isNaN(posB) ? 0 : posB);
+      });
+      const occurrence = keyOccurrenceIndex[bankKey] ?? 0;
+      keyOccurrenceIndex[bankKey] = occurrence + 1;
+      const selectionKey = selectionKeys[occurrence];
+      if (!selectionKey) return match;
+      const selectionIndex = activeTemplate.selections[selectionKey];
+      if (bank?.options && bank.options[selectionIndex] !== undefined) {
+        return getLocalized(bank.options[selectionIndex], language);
       }
-      return part;
-    }).join('');
+      return match;
+    });
 
     navigator.clipboard.writeText(finalContent).then(() => {
       setCopied(true);
@@ -536,7 +559,29 @@ const App = () => {
   };
 
   const handleGenerate = async () => {
-    if (!llmSettings.endpoint || !llmSettings.apiKey) {
+    if (!isLlmConfigured(llmSettings)) {
+      await message(t('llm_settings_not_configured'));
+      return;
+    }
+
+    const mt = llmSettings?.modelType || 'custom';
+    if (mt === 'gemini') {
+      await message(t('generate_unsupported_for_gemini'));
+      return;
+    }
+
+    let endpoint;
+    let model;
+    const apiKey = llmSettings.apiKey;
+    if (mt === 'qwen') {
+      endpoint = LLM_MODEL_CONFIG.qwen.endpoint;
+      model = llmSettings.model?.trim() || LLM_MODEL_CONFIG.qwen.defaultModel;
+    } else {
+      endpoint = llmSettings.endpoint;
+      model = llmSettings.model?.trim() || LLM_MODEL_CONFIG.custom.defaultModel;
+    }
+
+    if (!endpoint || !apiKey) {
       await message(t('llm_settings_not_configured'));
       return;
     }
@@ -546,14 +591,14 @@ const App = () => {
     const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
 
     try {
-      const response = await fetch(llmSettings.endpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${llmSettings.apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model,
           messages: [
             {
               role: "system",
@@ -576,6 +621,54 @@ const App = () => {
     } catch (error) {
       console.error('Error generating tags and variables:', error);
       await message(t('ai_generation_failed'));
+    }
+  };
+
+  const handleOptimize = async () => {
+    if (!isLlmConfigured(llmSettings)) {
+      await message(t('llm_settings_not_configured'));
+      return;
+    }
+    if (!activeTemplate) return;
+
+    const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+    setOptimizeStatus('requesting');
+    try {
+      const { text } = await invokeLlm(
+        {
+          llmSettings,
+          systemContent: OPTIMIZE_SYSTEM,
+          userContent: buildOptimizeUserPrompt(content),
+        },
+        {
+          stream: true,
+          onFirstChunk: () => setOptimizeStatus('optimizing'),
+        }
+      );
+      let j;
+      try {
+        j = JSON.parse(text);
+      } catch {
+        await message(t('optimize_parse_error'));
+        return;
+      }
+      const ev = (j && typeof j.evaluation === 'string') ? j.evaluation : '';
+      const sug = j?.suggestedContent;
+      const hasSuggested = sug != null && String(sug).trim();
+
+      if (hasSuggested) {
+        setOptimizeEvaluation(ev);
+        setOptimizeSuggestedContent(String(sug).trim());
+        setIsDiffViewOpen(true);
+      } else {
+        setOptimizeEvaluation(ev);
+        setIsOptimizeEvalModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Smart optimize error:', err);
+      await message(t('ai_generation_failed'));
+    } finally {
+      setOptimizeStatus(null);
     }
   };
   
@@ -683,32 +776,63 @@ const App = () => {
           t={t}
         />
       )}
-      {isDiffViewOpen && activeTemplate && (
-        <DiffView
-          isHistoryDiff={!!historyDiffTarget}
-          originalContent={historyDiffTarget ? historyDiffTarget.content : getLocalized(activeTemplate.content, templateLanguage)}
-          newContent={historyDiffTarget ? getLocalized(activeTemplate.content, templateLanguage) : drafts[activeTemplate.id]}
-          onClose={() => {
-            setIsDiffViewOpen(false);
-            setHistoryDiffTarget(null);
-          }}
-          onReset={() => {
-            handleResetDraft();
-            setIsDiffViewOpen(false);
-            setHistoryDiffTarget(null);
-          }}
-          onApply={() => {
-            if (historyDiffTarget) {
-              handleRestoreVersion(historyDiffTarget);
-            } else {
-              handleApplyDraft();
-            }
-            setIsDiffViewOpen(false);
-            setHistoryDiffTarget(null);
-          }}
+      {isOptimizeEvalModalOpen && (
+        <OptimizeEvalModal
+          evaluation={optimizeEvaluation}
+          onClose={() => setIsOptimizeEvalModalOpen(false)}
           t={t}
         />
       )}
+      {isDiffViewOpen && activeTemplate && (() => {
+        const isHistory = !!historyDiffTarget;
+        const isOptimize = optimizeSuggestedContent != null;
+        const currentContent = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+
+        if (isHistory) {
+          return (
+            <DiffView
+              isHistoryDiff
+              originalContent={historyDiffTarget.content}
+              newContent={getLocalized(activeTemplate.content, templateLanguage)}
+              onClose={() => { setIsDiffViewOpen(false); setHistoryDiffTarget(null); }}
+              onReset={() => {}}
+              onApply={() => { handleRestoreVersion(historyDiffTarget); setIsDiffViewOpen(false); setHistoryDiffTarget(null); }}
+              t={t}
+            />
+          );
+        }
+        if (isOptimize) {
+          return (
+            <DiffView
+              isHistoryDiff={false}
+              originalContent={currentContent}
+              newContent={optimizeSuggestedContent}
+              evaluation={optimizeEvaluation || undefined}
+              newVersionLabel={t('optimize_suggested_version')}
+              onClose={() => { setIsDiffViewOpen(false); setOptimizeSuggestedContent(null); setOptimizeEvaluation(null); }}
+              onReset={() => { setIsDiffViewOpen(false); setOptimizeSuggestedContent(null); setOptimizeEvaluation(null); }}
+              onApply={() => {
+                setDrafts(prev => ({ ...prev, [activeTemplateId]: optimizeSuggestedContent }));
+                setIsDiffViewOpen(false);
+                setOptimizeSuggestedContent(null);
+                setOptimizeEvaluation(null);
+              }}
+              t={t}
+            />
+          );
+        }
+        return (
+          <DiffView
+            isHistoryDiff={false}
+            originalContent={getLocalized(activeTemplate.content, templateLanguage)}
+            newContent={drafts[activeTemplate.id]}
+            onClose={() => { setIsDiffViewOpen(false); setHistoryDiffTarget(null); }}
+            onReset={() => { handleResetDraft(); setIsDiffViewOpen(false); setHistoryDiffTarget(null); }}
+            onApply={() => { handleApplyDraft(); setIsDiffViewOpen(false); setHistoryDiffTarget(null); }}
+            t={t}
+          />
+        );
+      })()}
       <div className="flex flex-1 h-full overflow-hidden">
         {/* Left Sidebar */}
         <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
@@ -772,7 +896,9 @@ const App = () => {
                  onOpenHistory={onOpenHistory}
                  onCloseHistory={onCloseHistory}
                  onRestoreVersion={handleRestoreVersion}
-                 onOpenDiff={() => setIsDiffViewOpen(true)}
+                 onOpenDiff={() => { setOptimizeSuggestedContent(null); setOptimizeEvaluation(null); setHistoryDiffTarget(null); setIsDiffViewOpen(true); }}
+                 onOptimize={handleOptimize}
+                 optimizeStatus={optimizeStatus}
                />
                 <div className="flex-grow relative h-full flex flex-col">
                     {/* 纯文本编辑器 */}

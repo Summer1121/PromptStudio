@@ -2,15 +2,19 @@ import React from 'react';
 import { X, Undo2, Check } from 'lucide-react';
 import diff from '../utils/diff';
 
-export const DiffView = ({ originalContent, newContent, onClose, onReset, onApply, t, isHistoryDiff }) => {
+export const DiffView = ({ originalContent, newContent, onClose, onReset, onApply, t, isHistoryDiff, evaluation, newVersionLabel }) => {
   const diffResult = diff(originalContent || '', newContent || '');
+  const rightLabel = newVersionLabel || (isHistoryDiff ? t('current_version') : t('draft_version'));
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col h-[80vh]">
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h3 className="font-bold text-gray-800">{t('diff_view_title')}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded text-gray-500"><X size={18}/></button>
+        <div className="p-4 border-b border-gray-100 flex justify-between items-start bg-gray-50">
+          <div>
+            <h3 className="font-bold text-gray-800">{t('diff_view_title')}</h3>
+            {evaluation && <p className="text-xs text-gray-600 mt-1 max-w-2xl">{evaluation}</p>}
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded text-gray-500 flex-shrink-0"><X size={18}/></button>
         </div>
         
         <div className="flex-1 p-4 overflow-y-auto font-mono text-xs">
@@ -35,7 +39,7 @@ export const DiffView = ({ originalContent, newContent, onClose, onReset, onAppl
               );
             })}
           </pre>
-          <div className="text-sm font-semibold mt-4 mb-2 text-green-600">{isHistoryDiff ? t('current_version') : t('draft_version')}</div>
+          <div className="text-sm font-semibold mt-4 mb-2 text-green-600">{rightLabel}</div>
           <pre className="text-xs p-4 rounded-lg bg-green-50 whitespace-pre-wrap font-mono">
             {newContent}
           </pre>

@@ -9,7 +9,7 @@ test.describe('基本交互测试', () => {
   });
 
   test('应能加载主页面并显示模板列表', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: '提示词填空器' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '提示词管理器' })).toBeVisible();
     const templates = page.locator('div[class="grid grid-cols-1 gap-2.5"] > div');
     const count = await templates.count();
     expect(count).toBeGreaterThan(0);

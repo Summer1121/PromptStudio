@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FileText, Copy, Check, Tag, GitCompareArrows, History } from 'lucide-react';
+import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2 } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 
 export const EditorToolbar = React.memo(({
@@ -15,6 +15,9 @@ export const EditorToolbar = React.memo(({
   onOpenTagMenu,
   onOpenHistory,
   onOpenDiff,
+  onOptimize,
+  /** 'requesting' | 'optimizing' | null */
+  optimizeStatus = null,
 }) => {
   const tagButtonRef = useRef(null);
   const historyButtonRef = useRef(null);
@@ -69,6 +72,19 @@ export const EditorToolbar = React.memo(({
           </div>
         )}
         
+        <button
+          onClick={onOptimize}
+          disabled={!!optimizeStatus}
+          className="px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 bg-orange-100 text-orange-600 hover:bg-orange-200 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {optimizeStatus ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          {optimizeStatus === 'requesting'
+            ? t('optimize_requesting')
+            : optimizeStatus === 'optimizing'
+              ? t('optimize_optimizing')
+              : t('smart_evaluate_optimize')}
+        </button>
+
         <div className="relative">
           <button
             ref={historyButtonRef}

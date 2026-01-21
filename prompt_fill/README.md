@@ -1,4 +1,4 @@
-# Prompt Fill (提示词填空器)
+# Prompt Fill (提示词管理器)
 
 一个专为 AI 绘画（GPT、Nano Banana 等）设计的**结构化提示词生成工具**。通过可视化的"填空"交互方式，帮助用户快速构建、管理和迭代复杂的 Prompt。
 

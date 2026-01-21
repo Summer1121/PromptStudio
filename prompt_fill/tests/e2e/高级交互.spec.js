@@ -42,7 +42,7 @@ test.describe('高级交互与目录功能测试', () => {
     await page.getByLabel('主题').getByText('人物').click();
     await page.getByLabel('风格').getByText('卡通').click();
     
-    await page.getByRole('heading', { name: '提示词填空器' }).click();
+    await page.getByRole('heading', { name: '提示词管理器' }).click();
     
     const filteredCount = await templatesContainer.locator('.group.flex-col').count();
     expect(filteredCount).toBeLessThan(initialVisibleTemplates);

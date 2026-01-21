@@ -54,7 +54,7 @@ export const TemplatesSidebar = React.memo(({
       <div className="flex flex-col w-full h-full">
         <div className="flex-shrink-0 p-5 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between mb-3">
-              <h1 className="font-bold tracking-tight text-sm text-orange-500">提示词填空器</h1>
+              <h1 className="font-bold tracking-tight text-sm text-orange-500">提示词管理器</h1>
               <div className="flex items-center gap-1.5">
                     <button onClick={() => setDiscoveryView(true)} className="p-1.5 rounded-lg transition-all text-orange-500 bg-orange-50/50 hover:text-orange-600 hover:bg-orange-100 shadow-sm" title={t('back_to_discovery')}><Home size={18} /></button>
                     <button onClick={handleResetTemplate} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('refresh_desc')}><RotateCcw size={16} /></button>
