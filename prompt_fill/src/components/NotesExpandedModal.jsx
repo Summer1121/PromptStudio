@@ -4,7 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import { X } from 'lucide-react';
 import { NotesToolbar } from './NotesToolbar';
-import { getMediaUrl, convertMediaUrlsToPathsInHtml } from '../services/tauri-service';
+import { getMediaUrl, convertMediaForSave } from '../services/tauri-service';
 
 /**
  * 将 HTML 中的 media:// 路径转换为可访问的 URL
@@ -47,7 +47,7 @@ export const NotesExpandedModal = ({ notes, onSaveNotes, onClose, templateId, t 
   const [saveStatus, setSaveStatus] = useState(null); // 保存状态：'saving', 'success', 'error'
   const isUpdatingFromOutside = useRef(false); // 标记是否正在从外部更新
   const lastNotesRef = useRef(notes); // 记录上次的 notes 值
-  const lastTemplateIdRef = useRef(templateId); // 记录上次的模板 ID
+  const lastTemplateIdRef = useRef(undefined); // 初始为 undefined，确保打开模态后首次也会做 setContent 与 media 转换
   
   const editor = useEditor({
     extensions: [
@@ -155,8 +155,8 @@ export const NotesExpandedModal = ({ notes, onSaveNotes, onClose, templateId, t 
   const handleSave = async () => {
     if (editor) {
       let content = editor.getHTML();
-      // 将 HTML 中的媒体 URL 转换回 media:// 路径引用（保存时）
-      content = convertMediaUrlsToPathsInHtml(content);
+      // 保存时：Tauri 转成 media://；浏览器将 blob/media:// 转成 data URL 以在刷新后可用
+      content = await convertMediaForSave(content);
       lastNotesRef.current = content; // 更新记录的 notes 值
       setSaveStatus('saving');
       try {

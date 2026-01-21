@@ -236,7 +236,7 @@ export function convertUrlToMediaPath(url) {
 }
 
 /**
- * 将 HTML 中的所有媒体 URL 转换回 media:// 路径引用
+ * 将 HTML 中的所有媒体 URL 转换回 media:// 路径引用（仅 Tauri 使用）
  * @param {string} html - HTML 内容
  * @returns {string} 转换后的 HTML
  */
@@ -251,68 +251,106 @@ export function convertMediaUrlsToPathsInHtml(html) {
 }
 
 /**
+ * 将 Blob 转为 data URL
+ * @param {Blob} blob
+ * @returns {Promise<string>}
+ */
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * 保存前统一处理媒体：Tauri 转成 media://；浏览器将 blob/media:// 转成 data URL，以便刷新后仍能显示
+ * @param {string} html - HTML 内容
+ * @returns {Promise<string>} 转换后的 HTML
+ */
+export async function convertMediaForSave(html) {
+  if (!html || typeof html !== 'string') return html;
+
+  if (isTauriAvailable()) {
+    return convertMediaUrlsToPathsInHtml(html);
+  }
+
+  // 浏览器模式：将 blob: 和 media:// 转成 data URL，才能在下一次刷新后显示
+  const srcRegex = /src=["']([^"']+)["']/g;
+  const urls = [];
+  let m;
+  while ((m = srcRegex.exec(html)) !== null) {
+    urls.push({ full: m[0], url: m[1] });
+  }
+  if (urls.length === 0) return html;
+
+  let out = html;
+  for (const { full, url } of urls) {
+    if (!url || (!url.startsWith('blob:') && !url.startsWith('media://'))) continue;
+    let blobUrl = url;
+    if (url.startsWith('media://')) {
+      try {
+        const mediaMap = JSON.parse(sessionStorage.getItem('media_blob_map') || '{}');
+        blobUrl = mediaMap[url] || '';
+      } catch (e) {
+        blobUrl = '';
+      }
+    }
+    if (!blobUrl) continue;
+    try {
+      const res = await fetch(blobUrl);
+      const blob = await res.blob();
+      const dataUrl = await blobToDataUrl(blob);
+      // 使用函数形式避免 dataUrl 中的 $ 被 replace 当作占位符
+      out = out.replace(full, () => `src="${dataUrl}"`);
+    } catch (err) {
+      console.warn('convertMediaForSave: 无法将媒体转为 data URL，保留原值', url, err);
+    }
+  }
+  return out;
+}
+
+/**
  * 将媒体文件引用路径转换为可访问的 URL
  * @param {string} mediaPath - 媒体文件引用路径（media://filename）
  * @returns {Promise<string>} 可访问的文件 URL
  */
 export async function getMediaUrl(mediaPath) {
-  console.log('getMediaUrl called with:', mediaPath);
   if (!mediaPath || !mediaPath.startsWith('media://')) {
-    console.log('Not a media:// path, returning as-is');
     return mediaPath; // 如果不是 media:// 格式，直接返回
   }
 
   const fileName = mediaPath.replace('media://', '');
-  console.log('Extracted filename:', fileName);
-  
+
   // 浏览器模式：从 sessionStorage 获取 Blob URL
   if (!isTauriAvailable()) {
-    console.log('Browser mode: looking up Blob URL');
     try {
       const mediaMap = JSON.parse(sessionStorage.getItem('media_blob_map') || '{}');
       const blobUrl = mediaMap[mediaPath];
-      if (blobUrl) {
-        console.log('Found Blob URL:', blobUrl);
-        return blobUrl;
-      }
-      console.warn('Blob URL not found in sessionStorage for:', mediaPath);
+      if (blobUrl) return blobUrl;
     } catch (error) {
-      console.warn('Failed to get media URL from sessionStorage:', error);
+      // 忽略
     }
-    return ''; // 或返回占位符 URL
+    return '';
   }
 
   try {
-    console.log('Tauri mode: converting path to URL');
-    // 使用 Tauri FS API 转换路径
     const { appDataDir, join } = await import('@tauri-apps/api/path');
     const { convertFileSrc } = await import('@tauri-apps/api/core');
-    
     const appDataDirPath = await appDataDir();
-    console.log('App data dir:', appDataDirPath);
     const mediaDir = await join(appDataDirPath, 'media');
     const filePath = await join(mediaDir, fileName);
-    console.log('Full file path:', filePath);
-    
-    // 使用 convertFileSrc 将文件路径转换为可访问的 URL
-    const url = convertFileSrc(filePath);
-    console.log('Converted URL:', url);
-    return url;
+    return convertFileSrc(filePath);
   } catch (error) {
-    console.error('Failed to get media URL:', error);
-    console.error('Error details:', error.message, error.stack);
-    // 降级：尝试使用 file:// 协议
+    // 降级：尝试 file:// 协议
     try {
       const { appDataDir, join } = await import('@tauri-apps/api/path');
       const appDataDirPath = await appDataDir();
       const mediaDir = await join(appDataDirPath, 'media');
       const filePath = await join(mediaDir, fileName);
-      const normalizedPath = filePath.replace(/\\/g, '/');
-      const fallbackUrl = `file:///${normalizedPath}`;
-      console.log('Using fallback URL:', fallbackUrl);
-      return fallbackUrl;
+      return `file:///${filePath.replace(/\\/g, '/')}`;
     } catch (fallbackError) {
-      console.error('Fallback media URL conversion failed:', fallbackError);
       return '';
     }
   }
