@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { confirm, message } from '@tauri-apps/plugin-dialog';
-import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor } from './components';
+import { confirm as tauriConfirm, message as tauriMessage } from '@tauri-apps/plugin-dialog';
+import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor, McpManager } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
@@ -17,6 +17,21 @@ import { INITIAL_BANKS, INITIAL_CATEGORIES, INITIAL_DEFAULTS } from './data/bank
 import { TRANSLATIONS } from './constants/translations';
 import { TAG_LABELS } from './constants/styles';
 import { Check } from 'lucide-react';
+
+import { listMcpTools } from './services/mcp-service';
+
+// --- Safe Wrappers for Tauri Plugins ---
+const isTauri = typeof window !== 'undefined' && window.__TAURI_INTERNALS__;
+
+const confirm = async (msg, options) => {
+  if (isTauri) return await tauriConfirm(msg, options);
+  return window.confirm(msg);
+};
+
+const message = async (msg, options) => {
+  if (isTauri) return await tauriMessage(msg, options);
+  window.alert(msg);
+};
 
 const App = () => {
   const APP_VERSION = "0.7.2"; // Final authoritative version with Tauri dialog
@@ -35,11 +50,16 @@ const App = () => {
   const [templateLanguage, setTemplateLanguage] = useState("cn");
   const [tagTree, setTagTree] = useState(TEMPLATE_TAG_TREE);
   const [llmSettings, setLlmSettings] = useState({});
+  const [availableTools, setAvailableTools] = useState([]);
+  const [selectedTools, setSelectedTools] = useState([]); // Array of tool names
+  const [toolCallHistory, setToolCallHistory] = useState([]); // Array of { name, args, result, status }
+  const [toolMenuState, setToolMenuState] = useState({ visible: false, x: 0, y: 0, options: [] });
   
   // --- UI & Control State ---
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isDiscoveryView, setDiscoveryView] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMcpManagerOpen, setIsMcpManagerOpen] = useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isDiffViewOpen, setIsDiffViewOpen] = useState(false);
   const [optimizeSuggestedContent, setOptimizeSuggestedContent] = useState(null);
@@ -106,7 +126,33 @@ const App = () => {
   const [historyDiffTarget, setHistoryDiffTarget] = useState(null);
   const isPickerOpening = useRef(false);
   const keepDraftOnNextSwitch = useRef(false);
+
+  const onOpenToolMenu = async (rect) => {
+    try {
+      const { tools } = await listMcpTools();
+      setToolMenuState({
+        visible: true,
+        x: rect.left,
+        y: rect.bottom,
+        options: tools || [],
+      });
+    } catch (e) {
+      console.error('Failed to list tools', e);
+      // await message('Failed to list MCP tools');
+    }
+  };
   
+  const onCloseToolMenu = () => {
+    setToolMenuState(prev => ({ ...prev, visible: false }));
+  };
+
+  const handleToggleTool = (toolName) => {
+    setSelectedTools(prev => {
+      if (prev.includes(toolName)) return prev.filter(t => t !== toolName);
+      return [...prev, toolName];
+    });
+  };
+
   const isMobileDevice = typeof window !== 'undefined' && window.innerWidth < 768;
   const [mobileTab, setMobileTab] = useState(isMobileDevice ? "home" : "editor");
 
@@ -633,16 +679,24 @@ const App = () => {
 
     const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
     setOptimizeStatus('requesting');
+    
+    // Filter full tool definitions
+    const activeTools = availableTools.filter(t => selectedTools.includes(t.name));
+
     try {
       const { text } = await invokeLlm(
         {
           llmSettings,
           systemContent: OPTIMIZE_SYSTEM,
           userContent: buildOptimizeUserPrompt(content),
+          tools: activeTools,
         },
         {
           stream: true,
           onFirstChunk: () => setOptimizeStatus('optimizing'),
+          onToolCall: (name, args) => {
+            setToolCallHistory(prev => [...prev, { name, args, status: 'running', timestamp: Date.now() }]);
+          },
         }
       );
       let j;
@@ -665,8 +719,10 @@ const App = () => {
         setIsOptimizeEvalModalOpen(true);
       }
     } catch (err) {
-      console.error('Smart optimize error:', err);
-      await message(t('ai_generation_failed'));
+      console.error('Smart optimize error details:', err);
+      if (err.message) console.error('Error message:', err.message);
+      if (err.stack) console.error('Error stack:', err.stack);
+      await message(`${t('ai_generation_failed')}: ${err.message || 'Unknown error'}`);
     } finally {
       setOptimizeStatus(null);
     }
@@ -720,6 +776,44 @@ const App = () => {
                     {(activeTemplate.tags || []).includes(path) && <Check size={14} />}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {isMcpManagerOpen && (
+        <McpManager
+          onClose={() => setIsMcpManagerOpen(false)}
+          t={t}
+        />
+      )}
+      {toolMenuState.visible && (
+        <>
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={onCloseToolMenu}
+          />
+          <div style={{ position: 'fixed', top: toolMenuState.y, left: toolMenuState.x, zIndex: 50 }}>
+            <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[200px] z-[100]">
+              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b">Attach Tools</div>
+              <div className="max-h-60 overflow-y-auto">
+                {(toolMenuState.options || []).length > 0 ? (
+                  toolMenuState.options.map(tool => (
+                    <button
+                      key={tool.name}
+                      onClick={() => handleToggleTool(tool.name)}
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center justify-between ${ selectedTools.includes(tool.name) ? 'text-orange-600 font-semibold' : 'text-gray-700'}`}
+                    >
+                      <div className="flex flex-col overflow-hidden">
+                        <span>{tool.name}</span>
+                        <span className="text-[10px] text-gray-400 truncate">{tool.description}</span>
+                      </div>
+                      {selectedTools.includes(tool.name) && <Check size={14} />}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-xs text-gray-400">No tools found</div>
+                )}
               </div>
             </div>
           </div>
@@ -869,6 +963,7 @@ const App = () => {
             setRandomSeed={setRandomSeed}
             setDiscoveryView={setDiscoveryView}
             setIsSettingsOpen={setIsSettingsOpen}
+            setIsMcpManagerOpen={setIsMcpManagerOpen}
             onManageTags={() => setIsTagManagerOpen(true)}
             isOpenDirectory={isOpenDirectory}
             toggleDirectory={toggleDirectory}
@@ -899,6 +994,8 @@ const App = () => {
                  onOpenDiff={() => { setOptimizeSuggestedContent(null); setOptimizeEvaluation(null); setHistoryDiffTarget(null); setIsDiffViewOpen(true); }}
                  onOptimize={handleOptimize}
                  optimizeStatus={optimizeStatus}
+                 onOpenToolMenu={onOpenToolMenu}
+                 selectedTools={selectedTools}
                />
                 <div className="flex-grow relative h-full flex flex-col">
                     {/* 纯文本编辑器 */}

@@ -1,215 +1,250 @@
-/**
- * LLM 适配器：根据 llmSettings.modelType 构造请求并解析响应，返回 { text }。
- * - custom：OpenAI 形（POST endpoint, Authorization: Bearer, body { model, messages }），支持 stream + onFirstChunk
- * - gemini：Google Generative Language generateContent，API Key 用 ?key=，暂不支持流式
- * - qwen：DashScope OpenAI 兼容 chat/completions，支持 stream + onFirstChunk
- */
 import { LLM_MODEL_CONFIG } from '../constants/llm-config';
+import { callMcpTool } from './mcp-service';
 
 /**
- * 解析 OpenAI 兼容的 SSE 流，累积 content，在收到首个内容时调用 onFirstChunk，最终返回完整文本。
- * @param {Response} res - fetch 返回的 Response（body 为 stream）
- * @param {() => void} [onFirstChunk] - 收到首个 content 增量时调用
- * @returns {Promise<string>}
+ * 判断当前是否已配置 LLM
  */
-async function streamOpenAICompatibleResponse(res, onFirstChunk) {
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let fullText = '';
-  let firstFired = false;
-  /** 当服务端忽略 stream 返回纯 JSON 时，用于回退解析 */
-  let rawJsonFallback = '';
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split('\n\n');
-      buffer = events.pop() || '';
-      for (const ev of events) {
-        const line = ev.trim().split('\n').find((l) => l.startsWith('data: '));
-        if (line) {
-          const d = line.slice(6).trim();
-          if (d === '[DONE]') return fullText;
-          try {
-            const j = JSON.parse(d);
-            const c = j?.choices?.[0]?.delta?.content;
-            if (typeof c === 'string' && c) {
-              fullText += c;
-              if (!firstFired && onFirstChunk) {
-                firstFired = true;
-                onFirstChunk();
-              }
-            }
-          } catch (_) {}
-        } else if (ev.trim().startsWith('{')) {
-          rawJsonFallback = ev.trim();
+export function isLlmConfigured(settings) {
+    if (!settings) return false;
+    const type = settings.modelType || 'custom';
+    if (type === 'custom') {
+        return !!(settings.endpoint && settings.apiKey);
+    }
+    return !!settings.apiKey;
+}
+
+/**
+ * 调用 LLM 生成内容，支持流式输出和工具调用 (MCP)
+ */
+export async function invokeLlm({ llmSettings, systemContent, userContent, messages, tools = [] }, options = {}) {
+    const type = llmSettings?.modelType || 'custom';
+    const apiKey = llmSettings?.apiKey;
+    const modelName = llmSettings?.model || getDefaultModel(type);
+    
+    let currentMessages = messages || [];
+    if (!messages && (systemContent || userContent)) {
+        if (systemContent) currentMessages.push({ role: 'system', content: systemContent });
+        if (userContent) currentMessages.push({ role: 'user', content: userContent });
+    }
+
+    let finalContent = "";
+    const maxTurns = 5;
+    let turn = 0;
+
+    while (turn < maxTurns) {
+        turn++;
+        console.log(`[LLM] Turn ${turn}, messages:`, JSON.parse(JSON.stringify(currentMessages)));
+
+        let response;
+        if (type === 'gemini') {
+            response = await callGemini(apiKey, modelName, currentMessages, tools, options);
+        } else if (type === 'qwen') {
+            response = await callQwen(apiKey, modelName, currentMessages, tools, options);
+        } else {
+            response = await callOpenAICompatible(llmSettings.endpoint, apiKey, modelName, currentMessages, tools, options);
         }
-      }
+
+        const toolCalls = response.tool_calls;
+        if (toolCalls && toolCalls.length > 0) {
+            // 将助手含有 tool_calls 的消息存入历史
+            currentMessages.push(response.message);
+            
+            for (const call of toolCalls) {
+                const { id, function: fn } = call;
+                const toolName = fn.name;
+                const args = typeof fn.arguments === 'string' ? JSON.parse(fn.arguments) : fn.arguments;
+
+                if (options.onToolCall) options.onToolCall(toolName, args);
+                
+                let toolResult;
+                try {
+                    const targetTool = tools.find(t => t.name === toolName);
+                    const serverName = targetTool?._server_name;
+                    
+                    if (!serverName) throw new Error(`Unknown server for tool ${toolName}`);
+
+                    const mcpResult = await callMcpTool(serverName, toolName, args);
+                    toolResult = mcpResult; // 保持结构，各 adapter 自行处理
+                } catch (err) {
+                    console.error(`[MCP] Tool execution failed:`, err);
+                    toolResult = { error: err.message };
+                }
+
+                // 将工具结果加入历史 (使用兼容格式，adapter 会转换)
+                currentMessages.push({
+                    role: 'tool',
+                    tool_call_id: id,
+                    content: toolResult,
+                    name: toolName
+                });
+            }
+        } else {
+            finalContent = response.content;
+            break;
+        }
     }
-    if (fullText === '' && rawJsonFallback) {
-      try {
-        const j = JSON.parse(rawJsonFallback);
-        return j?.choices?.[0]?.message?.content ?? '';
-      } catch (_) {}
+
+    return { text: finalContent };
+}
+
+function getDefaultModel(type) {
+    if (type === 'gemini') return LLM_MODEL_CONFIG.gemini.defaultModel;
+    if (type === 'qwen') return LLM_MODEL_CONFIG.qwen.defaultModel;
+    return LLM_MODEL_CONFIG.custom.defaultModel;
+}
+
+// --- Adapters ---
+
+async function callOpenAICompatible(endpoint, apiKey, model, messages, tools, options) {
+    const body = {
+        model,
+        messages: messages.map(m => {
+            // 简单转换格式
+            if (m.role === 'tool') {
+                return { 
+                    ...m, 
+                    content: typeof m.content === 'object' ? JSON.stringify(m.content) : m.content 
+                };
+            }
+            return m;
+        }),
+        stream: false, // 简化处理
+    };
+
+    if (tools && tools.length > 0) {
+        body.tools = tools.map(t => ({
+            type: 'function',
+            function: {
+                name: t.name,
+                description: t.description,
+                parameters: t.inputSchema || { type: "object", properties: {} }
+            }
+        }));
     }
-  } finally {
-    try {
-      reader.releaseLock();
-    } catch (_) {}
-  }
-  return fullText;
+
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+    });
+
+    if (!res.ok) throw new Error(`OpenAI API Error: ${res.status}`);
+    const data = await res.json();
+    const choice = data.choices[0];
+    return {
+        content: choice.message.content || "",
+        tool_calls: choice.message.tool_calls,
+        message: choice.message
+    };
 }
 
-/**
- * @param {{ llmSettings: { modelType?: string, endpoint?: string, apiKey?: string, model?: string }, systemContent: string, userContent: string }}
- * @param {{ stream?: boolean, onFirstChunk?: () => void }} [opts] - stream: 使用流式；onFirstChunk: 收到首个内容块时回调（仅 custom/qwen 流式时生效）
- * @returns {Promise<{ text: string }>}
- */
-export async function invokeLlm({ llmSettings, systemContent, userContent }, opts = {}) {
-  const mt = llmSettings?.modelType || 'custom';
+async function callGemini(apiKey, model, messages, tools, options) {
+    // 转换消息为 Gemini 格式
+    // roles: user, model
+    let contents = [];
+    let systemInstruction = "";
 
-  if (mt === 'gemini') {
-    return invokeGemini({ llmSettings, systemContent, userContent });
-  }
-  if (mt === 'qwen') {
-    return invokeQwen({ llmSettings, systemContent, userContent }, opts);
-  }
-  return invokeCustom({ llmSettings, systemContent, userContent }, opts);
+    messages.forEach(m => {
+        if (m.role === 'system') {
+            systemInstruction = m.content;
+        } else if (m.role === 'user') {
+            contents.push({ role: 'user', parts: [{ text: m.content }] });
+        } else if (m.role === 'assistant') {
+            const parts = [];
+            if (m.content) parts.push({ text: m.content });
+            if (m.tool_calls) {
+                m.tool_calls.forEach(tc => {
+                    parts.push({ 
+                        functionCall: { 
+                            name: tc.function.name, 
+                            args: typeof tc.function.arguments === 'string' ? JSON.parse(tc.function.arguments) : tc.function.arguments 
+                        } 
+                    });
+                });
+            }
+            contents.push({ role: 'model', parts });
+        } else if (m.role === 'tool') {
+            contents.push({
+                role: 'model', // Gemini 的 tool 响应也属于 model 角色或单独处理
+                parts: [{ 
+                    functionResponse: { 
+                        name: m.name, 
+                        response: { content: m.content } 
+                    } 
+                }]
+            });
+        }
+    });
+
+    const body = {
+        contents,
+        generationConfig: {
+            temperature: 0.7,
+        }
+    };
+
+    if (systemInstruction) {
+        body.system_instruction = { parts: [{ text: systemInstruction }] };
+    }
+
+    if (tools && tools.length > 0) {
+        body.tools = [{
+            function_declarations: tools.map(t => ({
+                name: t.name,
+                description: t.description,
+                parameters: t.inputSchema || { type: "object", properties: {} }
+            }))
+        }];
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(`Gemini Error: ${err.error?.message || res.status}`);
+    }
+
+    const data = await res.json();
+    const candidate = data.candidates[0];
+    const assistantParts = candidate.content.parts;
+    
+    let content = "";
+    let tool_calls = [];
+
+    assistantParts.forEach(p => {
+        if (p.text) content += p.text;
+        if (p.functionCall) {
+            tool_calls.push({
+                id: `call_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                type: 'function',
+                function: {
+                    name: p.functionCall.name,
+                    arguments: p.functionCall.args
+                }
+            });
+        }
+    });
+
+    return {
+        content,
+        tool_calls,
+        message: { 
+            role: 'assistant', 
+            content, 
+            tool_calls: tool_calls.length > 0 ? tool_calls : undefined 
+        }
+    };
 }
 
-async function invokeCustom({ llmSettings, systemContent, userContent }, opts = {}) {
-  const endpoint = llmSettings?.endpoint?.trim();
-  const apiKey = llmSettings?.apiKey?.trim();
-  const model = llmSettings?.model?.trim() || LLM_MODEL_CONFIG.custom.defaultModel;
-
-  if (!endpoint || !apiKey) {
-    throw new Error('LLM_CUSTOM_REQUIRED'); // 由调用方映射为 llm_settings_not_configured 或必填提示
-  }
-
-  const useStream = !!(opts.stream && opts.onFirstChunk);
-  const body = {
-    model,
-    messages: [
-      { role: 'system', content: systemContent },
-      { role: 'user', content: userContent },
-    ],
-    ...(useStream && { stream: true }),
-  };
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${errText}`);
-  }
-
-  if (useStream) {
-    const text = await streamOpenAICompatibleResponse(res, opts.onFirstChunk);
-    return { text };
-  }
-
-  const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (text == null) throw new Error('LLM_PARSE_EMPTY');
-  return { text };
-}
-
-async function invokeGemini({ llmSettings, systemContent, userContent }) {
-  const apiKey = llmSettings?.apiKey?.trim();
-  const model = llmSettings?.model?.trim() || LLM_MODEL_CONFIG.gemini.defaultModel;
-
-  if (!apiKey) throw new Error('LLM_GEMINI_REQUIRED');
-
-  // Google Generative Language API: generateContent
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  // 将 system 与 user 合并到一条 user 消息中（Gemini 部分型号支持 systemInstruction，此处用简单合并）
-  const combined = `${systemContent}\n\n---\n\n${userContent}`;
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: combined }] }],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${errText}`);
-  }
-
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (text == null) throw new Error('LLM_PARSE_EMPTY');
-  return { text };
-}
-
-async function invokeQwen({ llmSettings, systemContent, userContent }, opts = {}) {
-  const apiKey = llmSettings?.apiKey?.trim();
-  const model = llmSettings?.model?.trim() || LLM_MODEL_CONFIG.qwen.defaultModel;
-
-  if (!apiKey) throw new Error('LLM_QWEN_REQUIRED');
-
-  const useStream = !!(opts.stream && opts.onFirstChunk);
-  const body = {
-    model,
-    messages: [
-      { role: 'system', content: systemContent },
-      { role: 'user', content: userContent },
-    ],
-    ...(useStream && { stream: true }),
-  };
-
-  const res = await fetch(LLM_MODEL_CONFIG.qwen.endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`HTTP ${res.status}: ${errText}`);
-  }
-
-  if (useStream) {
-    const text = await streamOpenAICompatibleResponse(res, opts.onFirstChunk);
-    return { text };
-  }
-
-  const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (text == null) throw new Error('LLM_PARSE_EMPTY');
-  return { text };
-}
-
-/**
- * 校验当前 llmSettings 是否满足调用要求（用于智能优化、后续 handleGenerate 等）
- * @param {Record<string, unknown>} llmSettings
- * @returns {boolean}
- */
-export function isLlmConfigured(llmSettings) {
-  if (!llmSettings || typeof llmSettings !== 'object') return false;
-  const mt = llmSettings.modelType || 'custom';
-  if (mt === 'custom') {
-    return !!(llmSettings.endpoint && String(llmSettings.endpoint).trim() && llmSettings.apiKey && String(llmSettings.apiKey).trim());
-  }
-  if (mt === 'gemini') {
-    return !!(llmSettings.apiKey && String(llmSettings.apiKey).trim());
-  }
-  if (mt === 'qwen') {
-    return !!(llmSettings.apiKey && String(llmSettings.apiKey).trim());
-  }
-  return false;
+async function callQwen(apiKey, model, messages, tools, options) {
+    const endpoint = LLM_MODEL_CONFIG.qwen.endpoint;
+    return callOpenAICompatible(endpoint, apiKey, model, messages, tools, options);
 }

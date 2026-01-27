@@ -176,6 +176,7 @@ export const TRANSLATIONS = {
     reset: "重置",
     restore: "恢复",
     apply_changes: "应用",
+    mcp_resource_hub: "MCP 资源中心",
   },
   en: {
     template_management: "Templates",
@@ -352,5 +353,6 @@ export const TRANSLATIONS = {
     reset: "Reset",
     restore: "Restore",
     apply_changes: "Apply",
+    mcp_resource_hub: "MCP Resource Hub",
   },
 };

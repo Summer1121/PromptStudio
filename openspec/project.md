@@ -38,6 +38,8 @@ PromptStudio 是一个开源的提示词（Prompt）创作、管理与分享平�
     - **模板 (Template)**: 一个可复用的、包含变量的提示词结构，方便用户快速生成和定制提示词。
     - **变量 (Variable)**: 在模板中定义的占位符，用户可以填充具体内容。
     - **标签/目录 (Tag/Directory)**: 用于组织和分类提示词模板。
+    - **技能 (Skill)**: 用户编写的代码逻辑（Python/JS），关注具体的业务执行。
+    - **MCP (Model Context Protocol)**: 标准化的 AI 资源连接协议，用于管理 Skill 和外部数据源。
 
 ## Important Constraints
 - **中文优先**: 所有代码注释和面向用户的文本都必须使用中文。

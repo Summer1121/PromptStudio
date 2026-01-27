@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2 } from 'lucide-react';
+import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2, Wrench } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 
 export const EditorToolbar = React.memo(({
@@ -16,11 +16,13 @@ export const EditorToolbar = React.memo(({
   onOpenHistory,
   onOpenDiff,
   onOptimize,
-  /** 'requesting' | 'optimizing' | null */
   optimizeStatus = null,
+  onOpenToolMenu,
+  selectedTools = [],
 }) => {
   const tagButtonRef = useRef(null);
   const historyButtonRef = useRef(null);
+  const toolButtonRef = useRef(null);
 
   if (!activeTemplate) {
     return (
@@ -84,6 +86,18 @@ export const EditorToolbar = React.memo(({
               ? t('optimize_optimizing')
               : t('smart_evaluate_optimize')}
         </button>
+
+        <div className="relative">
+          <button
+            ref={toolButtonRef}
+            onClick={(e) => onOpenToolMenu && onOpenToolMenu(e.currentTarget.getBoundingClientRect())}
+            className={`p-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${selectedTools.length > 0 ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            title="Attach Tools"
+          >
+            <Wrench size={16} />
+            {selectedTools.length > 0 && <span className="text-xs bg-orange-200 px-1.5 rounded-full">{selectedTools.length}</span>}
+          </button>
+        </div>
 
         <div className="relative">
           <button
