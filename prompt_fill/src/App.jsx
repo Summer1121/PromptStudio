@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { confirm as tauriConfirm, message as tauriMessage } from '@tauri-apps/plugin-dialog';
-import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor, McpManager } from './components';
+import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor, McpManager, PromptToSkillModal } from './components';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
@@ -11,7 +11,7 @@ import { readDataFile, writeDataFile } from './services/tauri-service';
 import { invokeLlm, isLlmConfigured } from './services/llm-adapter';
 import { LLM_MODEL_CONFIG } from './constants/llm-config';
 import { OPTIMIZE_SYSTEM, buildOptimizeUserPrompt } from './constants/optimize-prompts';
-import { getLocalized } from './utils/helpers';
+import { getLocalized, hashCode } from './utils/helpers';
 import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAG_TREE } from './data/templates';
 import { INITIAL_BANKS, INITIAL_CATEGORIES, INITIAL_DEFAULTS } from './data/banks';
 import { TRANSLATIONS } from './constants/translations';
@@ -65,6 +65,7 @@ const App = () => {
   const [optimizeSuggestedContent, setOptimizeSuggestedContent] = useState(null);
   const [optimizeEvaluation, setOptimizeEvaluation] = useState(null);
   const [isOptimizeEvalModalOpen, setIsOptimizeEvalModalOpen] = useState(false);
+  const [isPromptToSkillModalOpen, setIsPromptToSkillModalOpen] = useState(false);
   /** 'requesting'=已发请求等待响应，'optimizing'=已收到首包，模型生成中；null=空闲 */
   const [optimizeStatus, setOptimizeStatus] = useState(null);
   
@@ -342,7 +343,29 @@ const App = () => {
     const draftContent = drafts[activeTemplateId];
     if (!activeTemplate || draftContent === undefined) return false;
     return draftContent !== getLocalized(activeTemplate.content, templateLanguage);
-  }, [activeTemplate, drafts, templateLanguage]);
+  }, [activeTemplate, drafts, activeTemplateId, templateLanguage]);
+
+  const isSkillOutdated = useMemo(() => {
+    if (!activeTemplate?.linkedSkill) return false;
+    const currentContent = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+    const currentHash = hashCode(currentContent);
+    return currentHash !== activeTemplate.linkedSkill.lastSyncHash;
+  }, [activeTemplate, drafts, activeTemplateId, templateLanguage]);
+
+  const handleSaveAsSkill = () => {
+    setIsPromptToSkillModalOpen(true);
+  };
+
+  const handleSkillShortcutSuccess = (skillName, contentHash) => {
+    if (activeTemplate) {
+      handleUpdateTemplate(activeTemplate.id, {
+        linkedSkill: {
+          name: skillName,
+          lastSyncHash: contentHash
+        }
+      });
+    }
+  };
   
   const displayTemplates = useMemo(() => {
     let processedTemplates = [...templates];
@@ -787,37 +810,15 @@ const App = () => {
           t={t}
         />
       )}
-      {toolMenuState.visible && (
-        <>
-          <div 
-            className="fixed inset-0 z-40"
-            onClick={onCloseToolMenu}
-          />
-          <div style={{ position: 'fixed', top: toolMenuState.y, left: toolMenuState.x, zIndex: 50 }}>
-            <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 min-w-[200px] z-[100]">
-              <div className="px-4 py-2 text-xs font-semibold text-gray-500 border-b">Attach Tools</div>
-              <div className="max-h-60 overflow-y-auto">
-                {(toolMenuState.options || []).length > 0 ? (
-                  toolMenuState.options.map(tool => (
-                    <button
-                      key={tool.name}
-                      onClick={() => handleToggleTool(tool.name)}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center justify-between ${ selectedTools.includes(tool.name) ? 'text-orange-600 font-semibold' : 'text-gray-700'}`}
-                    >
-                      <div className="flex flex-col overflow-hidden">
-                        <span>{tool.name}</span>
-                        <span className="text-[10px] text-gray-400 truncate">{tool.description}</span>
-                      </div>
-                      {selectedTools.includes(tool.name) && <Check size={14} />}
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-xs text-gray-400">No tools found</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
+      {isPromptToSkillModalOpen && activeTemplate && (
+        <PromptToSkillModal
+          activeTemplate={activeTemplate}
+          llmSettings={llmSettings}
+          onClose={() => setIsPromptToSkillModalOpen(false)}
+          t={t}
+          language={language}
+          onSuccess={handleSkillShortcutSuccess}
+        />
       )}
       {historyMenuState.visible && activeTemplate && (
         <>
@@ -996,6 +997,8 @@ const App = () => {
                  optimizeStatus={optimizeStatus}
                  onOpenToolMenu={onOpenToolMenu}
                  selectedTools={selectedTools}
+                 onSaveAsSkill={handleSaveAsSkill}
+                 isSkillOutdated={isSkillOutdated}
                />
                 <div className="flex-grow relative h-full flex flex-col">
                     {/* 纯文本编辑器 */}

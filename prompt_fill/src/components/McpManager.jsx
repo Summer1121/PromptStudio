@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Play, Square, Terminal, Plus, Trash2, Cpu, Globe, Code, Save, RotateCcw, HelpCircle } from 'lucide-react';
-import { listMcpTools, getMcpServers, getLastActiveServers, startMcpServer, stopMcpServer } from '../services/mcp-service';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, Play, Square, Terminal, Plus, X, Cpu, Globe, Code, Save, RotateCcw, HelpCircle } from 'lucide-react';
+import { listMcpTools, getMcpServers, getLastActiveServers, startMcpServer, stopMcpServer, getAllServers } from '../services/mcp-service';
 import { confirm, message } from '@tauri-apps/plugin-dialog';
 
 const McpManager = ({ onClose, t }) => {
@@ -16,28 +16,41 @@ const McpManager = ({ onClose, t }) => {
     const [isEditingSkill, setIsEditingSkill] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
 
+    const isInitialMount = useRef(true);
+
     const refreshData = async () => {
         setLoading(true);
         try {
-            const serverList = await getMcpServers();
+            const { servers: allServers } = await getAllServers();
+            const { tools } = await listMcpTools();
+            
+            const serverList = (allServers || []).map(s => ({
+                ...s,
+                tools: (tools || []).filter(t => t._server_name === s.name)
+            }));
+            
             setServers(serverList);
             
             const skillsRes = await fetch('http://localhost:19880/api/v1/mcp/skills');
             const { skills: skillsList } = await skillsRes.json();
             setSkills(skillsList || []);
+            return serverList;
         } catch (error) {
             console.error('Failed to load MCP data', error);
+            return [];
         } finally {
             setLoading(false);
         }
     };
 
-    const checkAndRestoreServers = async () => {
+    const checkAndRestoreServers = async (currentServers) => {
         try {
             const { last_active_servers } = await getLastActiveServers();
+            if (!last_active_servers || last_active_servers.length === 0) return;
+
             // 过滤掉已经在运行的
-            const currentRunning = servers.map(s => s.name);
-            const toRestore = last_active_servers.filter(name => !currentRunning.includes(name));
+            const currentRunningNames = currentServers.map(s => s.name);
+            const toRestore = last_active_servers.filter(name => !currentRunningNames.includes(name));
 
             if (toRestore.length > 0) {
                 const confirmed = await confirm(`检测到上次有 ${toRestore.length} 个 MCP 服务正在运行 (${toRestore.join(', ')})。是否恢复启动？`, { 
@@ -63,10 +76,12 @@ const McpManager = ({ onClose, t }) => {
     };
 
     useEffect(() => {
-        refreshData().then(() => {
-            // 延迟一点检查，避免UI闪烁
-            setTimeout(checkAndRestoreServers, 500);
-        });
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            refreshData().then((serverList) => {
+                setTimeout(() => checkAndRestoreServers(serverList), 300);
+            });
+        }
     }, []);
 
     const handleCreateSkill = () => {
@@ -120,6 +135,17 @@ def run_tool(param1: str) -> str:
         }
     };
 
+    const handleStartServer = async (serverName) => {
+        try {
+            await startMcpServer(serverName);
+            await refreshData();
+            await message(`服务器 ${serverName} 已启动`);
+        } catch (e) {
+            console.error('Start server failed', e);
+            await message(`启动失败: ${e.message}`);
+        }
+    };
+
     const handleStopServer = async (serverName) => {
         try {
             await stopMcpServer(serverName);
@@ -161,7 +187,7 @@ def run_tool(param1: str) -> str:
                             onClick={onClose}
                             className="p-2 hover:bg-gray-200 rounded-full transition-colors"
                         >
-                            <Trash2 size={20} className="text-gray-400 rotate-45" />
+                            <X size={20} className="text-gray-400" />
                         </button>
                     </div>
                 </div>
@@ -172,7 +198,7 @@ def run_tool(param1: str) -> str:
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800">如何连接外部客户端</h2>
                             <button onClick={() => setShowHelp(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                                <Trash2 size={24} className="rotate-45 text-gray-500" />
+                                <X size={24} className="text-gray-500" />
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto prose max-w-none text-sm text-gray-600 space-y-6">
@@ -234,36 +260,51 @@ def run_tool(param1: str) -> str:
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-800">{server.name}</h3>
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                                    Running
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${server.status === 'running' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                                    {server.status === 'running' ? 'Running' : 'Stopped'}
                                                 </span>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => handleViewLogs(server.name)}
-                                                className="p-1.5 hover:bg-gray-100 rounded text-gray-400" 
-                                                title="日志"
-                                            >
-                                                <Terminal size={16} />
-                                            </button>
-                                            <button 
-                                                onClick={() => handleStopServer(server.name)}
-                                                className="p-1.5 hover:bg-red-50 text-red-400 rounded" 
-                                                title="停止"
-                                            >
-                                                <Square size={16} />
-                                            </button>
+                                            {server.status === 'running' ? (
+                                                <>
+                                                    <button 
+                                                        onClick={() => handleViewLogs(server.name)}
+                                                        className="p-1.5 hover:bg-gray-100 rounded text-gray-400" 
+                                                        title="日志"
+                                                    >
+                                                        <Terminal size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleStopServer(server.name)}
+                                                        className="p-1.5 hover:bg-red-50 text-red-400 rounded" 
+                                                        title="停止"
+                                                    >
+                                                        <Square size={16} />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => handleStartServer(server.name)}
+                                                    className="p-1.5 hover:bg-green-50 text-green-600 rounded" 
+                                                    title="启动"
+                                                >
+                                                    <Play size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-xs text-gray-400 uppercase font-semibold">可用工具:</p>
                                         <div className="flex flex-wrap gap-1">
-                                            {server.tools.map(tool => (
+                                            {(server.tools || []).map(tool => (
                                                 <span key={tool.name} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] border border-gray-200">
                                                     {tool.name}
                                                 </span>
                                             ))}
+                                            {(!server.tools || server.tools.length === 0) && (
+                                                <span className="text-[10px] text-gray-400 italic">无可用工具</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

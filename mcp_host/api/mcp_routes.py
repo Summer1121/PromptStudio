@@ -56,6 +56,20 @@ async def get_server_state():
     active_servers = await mcp_manager.get_last_active_servers()
     return {"last_active_servers": active_servers}
 
+@router.get("/servers")
+async def list_all_servers():
+    config = mcp_manager.load_config()
+    servers = []
+    for name, info in config.get("servers", {}).items():
+        is_running = name in mcp_manager.processes and mcp_manager.processes[name].is_running
+        servers.append({
+            "name": name,
+            "status": "running" if is_running else "stopped",
+            "last_status": info.get("last_status"),
+            "auto_start": info.get("auto_start", True)
+        })
+    return {"servers": servers}
+
 @router.post("/server/{name}/start")
 async def start_server(name: str):
     config = mcp_manager.load_config()
@@ -270,14 +284,18 @@ async def list_skills():
     return {"skills": skills}
 
 @router.post("/skills")
-async def create_skill(name: str = Body(...), code: str = Body(...)):
+async def create_skill(
+    name: str = Body(...), 
+    code: str = Body(...),
+    env: Dict[str, str] = Body(None)
+):
     filename = f"{name}.py"
     filepath = SKILLS_DIR / filename
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(code)
     
     # 自动注册并启动
-    await mcp_manager.start_skill(name, str(filepath))
+    await mcp_manager.start_skill(name, str(filepath), env=env)
     return {"status": "created", "name": name}
 
 @router.get("/skills/{name}")

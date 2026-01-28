@@ -177,6 +177,10 @@ export const TRANSLATIONS = {
     restore: "恢复",
     apply_changes: "应用",
     mcp_resource_hub: "MCP 资源中心",
+    save_as_skill: "发布为 Skill",
+    sync_skill: "同步 Skill",
+    skill_outdated: "Skill 已过期",
+    update_skill: "更新现有 Skill",
   },
   en: {
     template_management: "Templates",
@@ -354,5 +358,9 @@ export const TRANSLATIONS = {
     restore: "Restore",
     apply_changes: "Apply",
     mcp_resource_hub: "MCP Resource Hub",
+    save_as_skill: "Publish as Skill",
+    sync_skill: "Sync Skill",
+    skill_outdated: "Skill Outdated",
+    update_skill: "Update Skill",
   },
 };

@@ -57,6 +57,20 @@ export async function getMcpServers() {
 }
 
 /**
+ * 获取所有配置中的服务器列表
+ */
+export async function getAllServers() {
+    try {
+        const response = await fetch(`${BASE_URL}/servers`);
+        if (!response.ok) throw new Error('Failed to fetch servers');
+        return await response.json();
+    } catch (error) {
+        console.error('Error getting all servers:', error);
+        return { servers: [] };
+    }
+}
+
+/**
  * 获取上次活跃的服务器列表
  */
 export async function getLastActiveServers() {

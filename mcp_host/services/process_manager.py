@@ -12,11 +12,12 @@ logger = logging.getLogger(__name__)
 
 class McpProcess:
     """封装单个 MCP 服务器进程及其通信管道 (异步版)"""
-    def __init__(self, name: str, command: str, args: List[str], cwd: Optional[str] = None):
+    def __init__(self, name: str, command: str, args: List[str], cwd: Optional[str] = None, env: Optional[Dict[str, str]] = None):
         self.name = name
         self.command = command
         self.args = args
         self.cwd = cwd
+        self.env = env
         self.process: Optional[asyncio.subprocess.Process] = None
         self.is_running = False
 
@@ -25,12 +26,18 @@ class McpProcess:
             full_command = [self.command] + self.args
             logger.info(f"正在启动 MCP 服务器 [{self.name}]: {' '.join(full_command)}")
             
+            # Combine system env with custom env
+            process_env = os.environ.copy()
+            if self.env:
+                process_env.update(self.env)
+
             self.process = await asyncio.create_subprocess_exec(
                 self.command, *self.args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=self.cwd,
+                env=process_env
             )
             self.is_running = True
             logger.info(f"MCP 服务器 [{self.name}] 已启动，PID: {self.process.pid}")
@@ -122,6 +129,9 @@ class McpProcessManager:
         # 更新 info 以防参数变化
         config["servers"][name]["command"] = info.get("command")
         config["servers"][name]["args"] = info.get("args")
+        # Ensure env is saved
+        config["servers"][name]["env"] = info.get("env")
+        
         self._save_config(config)
 
         if name in self.processes and self.processes[name].is_running:
@@ -131,19 +141,20 @@ class McpProcessManager:
         command = info.get("command")
         args = info.get("args", [])
         cwd = info.get("cwd")
+        env = info.get("env")
 
         if not command:
             logger.error(f"服务器 [{name}] 配置缺失 command 项")
             return
 
-        mcp_proc = McpProcess(name, command, args, cwd)
+        mcp_proc = McpProcess(name, command, args, cwd, env=env)
         try:
             await mcp_proc.start()
             self.processes[name] = mcp_proc
         except Exception:
             pass
 
-    async def start_skill(self, name: str, script_path: str):
+    async def start_skill(self, name: str, script_path: str, env: Optional[Dict[str, str]] = None):
         """以 MCP 服务器形式启动一个本地 Python 脚本 (Skill)"""
         runner_path = os.path.join(os.path.dirname(__file__), "script_runner.py")
         
@@ -159,7 +170,8 @@ class McpProcessManager:
             "command": command,
             "args": args,
             "auto_start": True,
-            "last_status": "running"
+            "last_status": "running",
+            "env": env
         }
         await self.start_server(name, info)
 

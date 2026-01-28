@@ -22,3 +22,4 @@ export * from './VariablePicker';
 export * from './VisualEditor';
 export * from './PlainTextEditor';
 export { default as McpManager } from './McpManager';
+export * from './PromptToSkillModal';

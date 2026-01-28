@@ -18,8 +18,23 @@ export const makeUniqueKey = (base, existingKeys, suffix = "custom") => {
 export const getLocalized = (obj, language) => {
   if (!obj) return "";
   if (typeof obj === 'string') return obj;
-  return obj[language] || obj.cn || obj.en || "";
+  return localizedValue;
 };
+
+/**
+ * 为字符串生成简单的哈希值
+ */
+export const hashCode = (str) => {
+  let hash = 0;
+  if (!str || str.length === 0) return hash.toString();
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash.toString();
+};
+
 
 // 等待图片加载完成，避免导出时空白
 export const waitForImageLoad = (img, timeout = 6000) => {

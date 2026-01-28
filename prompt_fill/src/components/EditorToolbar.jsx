@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2, Wrench } from 'lucide-react';
+import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2, Wrench, Zap } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 
 export const EditorToolbar = React.memo(({
@@ -16,9 +16,12 @@ export const EditorToolbar = React.memo(({
   onOpenHistory,
   onOpenDiff,
   onOptimize,
+  /** 'requesting' | 'optimizing' | null */
   optimizeStatus = null,
   onOpenToolMenu,
   selectedTools = [],
+  onSaveAsSkill,
+  isSkillOutdated = false,
 }) => {
   const tagButtonRef = useRef(null);
   const historyButtonRef = useRef(null);
@@ -85,6 +88,21 @@ export const EditorToolbar = React.memo(({
             : optimizeStatus === 'optimizing'
               ? t('optimize_optimizing')
               : t('smart_evaluate_optimize')}
+        </button>
+
+        <button
+          onClick={onSaveAsSkill}
+          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-2 ${
+            isSkillOutdated 
+              ? 'bg-red-100 text-red-600 hover:bg-red-200 animate-pulse' 
+              : activeTemplate?.linkedSkill 
+                ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+          }`}
+          title={activeTemplate?.linkedSkill ? t('update_skill') : t('save_as_skill')}
+        >
+          <Zap size={14} className={isSkillOutdated ? 'fill-current' : ''} />
+          {isSkillOutdated ? t('skill_outdated') : activeTemplate?.linkedSkill ? t('sync_skill') : t('save_as_skill')}
         </button>
 
         <div className="relative">
