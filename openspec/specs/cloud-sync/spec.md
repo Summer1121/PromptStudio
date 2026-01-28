@@ -1,0 +1,26 @@
+# cloud-sync Specification
+
+## Purpose
+TBD - created by archiving change add-community-features. Update Purpose after archive.
+## Requirements
+### Requirement: 备份流程
+系统 SHALL 将本地提示词文件同步到云端存储。
+
+#### Scenario: 用户启用云端备份
+- **GIVEN** 已登录用户
+- **WHEN** 用户激活“云端备份”
+- **THEN** 扫描本地提示词目录
+- **AND** 文件被上传到用户的私有云端存储
+- **AND** 更新最后一次备份的时间戳
+
+### Requirement: 多媒体处理
+系统 SHALL 在备份期间管理本地媒体资产。
+
+#### Scenario: 备份包含本地图片的提示词
+- **GIVEN** 一个包含本地图片路径的提示词
+- **WHEN** 运行备份流程
+- **THEN** 图片被哈希处理 (SHA-256)
+- **AND** 与服务器的媒体库进行检查
+- **AND** 如果不存在则上传（去重）
+- **AND** 备份中的提示词内容被更新为引用服务器 URL
+

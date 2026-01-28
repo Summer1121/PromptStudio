@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { confirm as tauriConfirm, message as tauriMessage } from '@tauri-apps/plugin-dialog';
-import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor, McpManager, PromptToSkillModal } from './components';
+import { TemplatesSidebar, BanksSidebar, EditorToolbar, VisualEditor, NotesEditor, PlainTextEditor, McpManager, PromptToSkillModal, AuthModal, MarketView } from './components';
+import { authService } from './services/auth';
+import { syncService } from './services/sync';
+import { publishService } from './services/publish';
+import { marketService } from './services/market';
 import { VariablePicker } from './components/VariablePicker';
 import MobileTabBar from './components/MobileTabBar';
 import { TagManager } from './components/TagManager';
@@ -66,6 +70,9 @@ const App = () => {
   const [optimizeEvaluation, setOptimizeEvaluation] = useState(null);
   const [isOptimizeEvalModalOpen, setIsOptimizeEvalModalOpen] = useState(false);
   const [isPromptToSkillModalOpen, setIsPromptToSkillModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const [user, setUser] = useState(authService.getUserInfo());
   /** 'requesting'=已发请求等待响应，'optimizing'=已收到首包，模型生成中；null=空闲 */
   const [optimizeStatus, setOptimizeStatus] = useState(null);
   
@@ -627,6 +634,67 @@ const App = () => {
     return Promise.reject(new Error('No active template'));
   };
 
+  const handleShare = async () => {
+    if (!authService.isLoggedIn()) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    if (!activeTemplate) return;
+
+    const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
+    
+    try {
+      await publishService.publish({
+        title: getLocalized(activeTemplate.name, language),
+        description: activeTemplate.notes || "",
+        content: content,
+        tags: (activeTemplate.tags || []).join(','),
+        visibility: 'public'
+      }, async (sensitive) => {
+        return confirm(`检测到敏感信息: ${sensitive.join(', ')}\n是否继续发布？`);
+      });
+      await message("发布成功！");
+    } catch (err) {
+      await message("发布失败: " + err.message);
+    }
+  };
+
+  const handleCloudSync = async () => {
+    if (!authService.isLoggedIn()) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    try {
+      await syncService.backup();
+      await message("云端备份成功！");
+    } catch (err) {
+      await message("备份失败: " + err.message);
+    }
+  };
+
+  const handleInstallPrompt = async (marketPrompt) => {
+    const newId = `market_${marketPrompt.uuid}`;
+    const newTemplate = {
+      id: newId,
+      name: marketPrompt.title,
+      author: marketPrompt.owner_name,
+      content: marketPrompt.latest_content,
+      tags: [], // 用户自行指定标签
+      notes: marketPrompt.description,
+      marketId: marketPrompt.uuid,
+      version: marketPrompt.latest_version,
+      createdAt: new Date().toISOString(),
+      history: []
+    };
+
+    setTemplates(prev => [newTemplate, ...prev]);
+    setActiveTemplateId(newId);
+    setIsMarketOpen(false);
+    await message("提示词已安装到本地");
+  };
+
   const handleGenerate = async () => {
     if (!isLlmConfigured(llmSettings)) {
       await message(t('llm_settings_not_configured'));
@@ -871,6 +939,22 @@ const App = () => {
           t={t}
         />
       )}
+      {isAuthModalOpen && (
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onAuthSuccess={() => setUser(authService.getUserInfo())}
+        />
+      )}
+      {isMarketOpen && (
+        <div className="fixed inset-0 z-[80] bg-white">
+          <MarketView 
+            onClose={() => setIsMarketOpen(false)} 
+            onInstall={handleInstallPrompt}
+            t={t}
+          />
+        </div>
+      )}
       {isOptimizeEvalModalOpen && (
         <OptimizeEvalModal
           evaluation={optimizeEvaluation}
@@ -965,6 +1049,8 @@ const App = () => {
             setDiscoveryView={setDiscoveryView}
             setIsSettingsOpen={setIsSettingsOpen}
             setIsMcpManagerOpen={setIsMcpManagerOpen}
+            setIsMarketOpen={setIsMarketOpen}
+            onCloudSync={handleCloudSync}
             onManageTags={() => setIsTagManagerOpen(true)}
             isOpenDirectory={isOpenDirectory}
             toggleDirectory={toggleDirectory}
@@ -999,6 +1085,7 @@ const App = () => {
                  selectedTools={selectedTools}
                  onSaveAsSkill={handleSaveAsSkill}
                  isSkillOutdated={isSkillOutdated}
+                 onShare={handleShare}
                />
                 <div className="flex-grow relative h-full flex flex-col">
                     {/* 纯文本编辑器 */}

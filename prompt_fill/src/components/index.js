@@ -22,4 +22,6 @@ export * from './VariablePicker';
 export * from './VisualEditor';
 export * from './PlainTextEditor';
 export { default as McpManager } from './McpManager';
+export { default as AuthModal } from './AuthModal';
+export { default as MarketView } from './MarketView';
 export * from './PromptToSkillModal';

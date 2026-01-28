@@ -1,0 +1,58 @@
+# prompt-market Specification
+
+## Purpose
+TBD - created by archiving change add-community-features. Update Purpose after archive.
+## Requirements
+### Requirement: 发布
+系统 SHALL 管理提示词发布到市场的流程。
+
+#### Scenario: 发布包含敏感数据的提示词
+- **GIVEN** 一个包含 API key（如 "sk-..."）的提示词
+- **WHEN** 用户点击“发布”
+- **THEN** 系统检测到敏感信息
+- **AND** 给出脱敏建议并警告用户
+- **AND** 允许用户选择“修正”或“仍然发布”
+
+#### Scenario: 发布新版本
+- **GIVEN** 一个之前已发布的提示词
+- **WHEN** 用户编辑后再次发布
+- **THEN** 系统在服务器上增加版本号
+- **AND** 通知该提示词的订阅者有更新
+
+#### Scenario: 可见性设置
+- **GIVEN** 一个提示词
+- **WHEN** 发布时
+- **THEN** 用户可以选择“公开”或“仅通过链接”
+- **AND** “公开”提示词出现在搜索结果中
+- **AND** “仅通过链接”的提示词只能通过直接 URL 访问
+
+### Requirement: 发现与安装
+系统 SHALL 允许用户寻找和使用市场中的提示词。
+
+#### Scenario: 搜索提示词
+- **GIVEN** 市场页面
+- **WHEN** 用户通过关键词或标签搜索
+- **THEN** 仅显示符合条件的“公开”提示词
+
+#### Scenario: 从市场安装提示词
+- **GIVEN** 提示词详情页
+- **WHEN** 用户点击“安装”
+- **THEN** 提示词被保存到本地工作空间
+- **AND** 系统提示用户分配自己的标签（忽略原始标签）
+- **AND** 本地记录来源市场 ID 和版本号
+
+### Requirement: 更新与回滚
+系统 SHALL 管理已安装提示词的版本。
+
+#### Scenario: 检查更新
+- **GIVEN** 已安装的市场提示词
+- **WHEN** 运行更新检查（手动或定时）
+- **THEN** 标记出有更高服务器版本的提示词
+
+#### Scenario: 更新和回滚
+- **GIVEN** 有可用更新
+- **WHEN** 用户接受更新
+- **THEN** 本地内容被替换
+- **AND** 前一个版本保存在本地历史中
+- **AND** 用户可以通过“回滚”恢复到前一个版本
+

@@ -1,2 +1,3 @@
-- 每次有交互变更，都需要在[app.spec.js](../prompt_fill/tests/e2e/app.spec.js)中为更新的交互添加自动化用例
-- 不要自动执行npm run test:e2e 我会自行执行。你只需要从@prompt_fill/tests/e2e/output/test-results.json读取结果即可
+- 每次有交互变更，都需要在@prompt_fill/tests/e2e/app.spec.js 中为更新的交互添加自动化用例
+- 不要自动执行npm run test:e2e 我会自行执行。你只需要从@prompt_fill/tests/e2e/output/test-results.json 读取结果即可
+- 严格遵守@openspec/AGENTS.md 的开发规则

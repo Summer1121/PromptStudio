@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2, Wrench, Zap } from 'lucide-react';
+import { FileText, Copy, Check, Tag, GitCompareArrows, History, Sparkles, Loader2, Wrench, Zap, Share2 } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 
 export const EditorToolbar = React.memo(({
@@ -22,6 +22,7 @@ export const EditorToolbar = React.memo(({
   selectedTools = [],
   onSaveAsSkill,
   isSkillOutdated = false,
+  onShare,
 }) => {
   const tagButtonRef = useRef(null);
   const historyButtonRef = useRef(null);
@@ -137,6 +138,14 @@ export const EditorToolbar = React.memo(({
             <Tag size={16} />
           </button>
         </div>
+
+        <button
+          onClick={() => onShare && onShare()}
+          className="p-2 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 bg-gray-100 text-gray-600 hover:bg-gray-200"
+          title="发布到市场"
+        >
+          <Share2 size={16} />
+        </button>
 
         <button
           onClick={onCopy}

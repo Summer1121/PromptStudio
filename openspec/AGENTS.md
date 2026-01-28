@@ -95,6 +95,11 @@ After deployment, create separate PR to:
   - Change: `openspec show <change-id> --json --deltas-only`
 - Full-text search (use ripgrep): `rg -n "Requirement:|Scenario:" openspec/specs`
 
+### Knowledge Maintenance
+- **Capture Knowledge**: If you discover new, confirmed, and phase-specific project knowledge, update it in `@openspec/project.md`.
+- **Refine Context**: If you detect that knowledge in `@openspec/project.md` is outdated or incorrect, modify it to reflect the current reality.
+
+
 ## Quick Start
 
 ### CLI Commands
