@@ -35,9 +35,9 @@ const MarketView = ({ onClose, onInstall, t }) => {
 
     return (
         <div className="flex flex-col h-full bg-gray-50 overflow-hidden">
-            <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
+            <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-4">
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600" title="返回">
                         <ArrowLeft size={20} />
                     </button>
                     <h1 className="text-xl font-bold text-gray-800">提示词市场</h1>
@@ -65,7 +65,7 @@ const MarketView = ({ onClose, onInstall, t }) => {
                                 onClick={() => setSelectedPrompt(prompt)}
                                 className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow p-5 cursor-pointer flex flex-col"
                             >
-                                <h3 className="text-lg font-bold text-gray-800 mb-2 truncate">{prompt.title}</h3>
+                                <h3 className="text-lg font-bold text-gray-800 mb-2 truncate list-item-text">{prompt.title}</h3>
                                 <p className="text-sm text-gray-500 line-clamp-3 flex-1 mb-4">{prompt.description}</p>
                                 <div className="flex items-center justify-between text-xs text-gray-400">
                                     <div className="flex items-center gap-3">

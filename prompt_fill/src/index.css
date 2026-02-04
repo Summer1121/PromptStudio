@@ -205,3 +205,22 @@
 .highlight-layer {
   pointer-events: none !important; /* 所有交互事件传递到 textarea */
 }
+
+/* 缩放抗乱序：关键 UI 最小可读/可点尺寸，避免缩放后换行错乱或难以点击 */
+.text-min-readable {
+  font-size: clamp(12px, 1rem, 14px);
+}
+.min-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+.toolbar-min-height {
+  min-height: 48px;
+}
+.sidebar-header-min-height {
+  min-height: 52px;
+}
+.list-item-text {
+  font-size: clamp(12px, 0.875rem, 14px);
+  line-height: 1.35;
+}

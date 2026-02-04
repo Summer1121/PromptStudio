@@ -37,13 +37,13 @@ export const EditorToolbar = React.memo(({
   }
 
   return (
-    <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 py-2 flex-wrap z-20">
+    <div className="border-b border-gray-200 bg-white/80 backdrop-blur-sm flex items-center justify-between px-6 py-2 flex-wrap z-20 toolbar-min-height">
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100">
+        <div className="p-2 bg-white rounded-lg shadow-sm border border-gray-100 min-touch-target flex items-center justify-center">
             <FileText size={20} className="text-orange-500" />
         </div>
         <div>
-            <h2 className="font-bold text-gray-800 text-base leading-tight">{getLocalized(activeTemplate.name, language)}</h2>
+            <h2 className="font-bold text-gray-800 leading-tight text-min-readable">{getLocalized(activeTemplate.name, language)}</h2>
             <div className="flex items-center gap-2">
               <p className="text-xs text-gray-500 leading-tight mt-0.5">by {activeTemplate.author || 'Unknown'}</p>
               {activeTemplate.tags && activeTemplate.tags.length > 0 && (

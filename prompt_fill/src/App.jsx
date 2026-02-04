@@ -20,9 +20,16 @@ import { INITIAL_TEMPLATES_CONFIG, TEMPLATE_TAG_TREE } from './data/templates';
 import { INITIAL_BANKS, INITIAL_CATEGORIES, INITIAL_DEFAULTS } from './data/banks';
 import { TRANSLATIONS } from './constants/translations';
 import { TAG_LABELS } from './constants/styles';
-import { Check } from 'lucide-react';
+import { Check, List, Cpu, Cloud } from 'lucide-react';
 
 import { listMcpTools } from './services/mcp-service';
+
+// 应用顶级标签：提示词管理 | MCP 中心 | 提示词市场
+const APP_TOP_TABS = [
+  { id: 'prompts', icon: List, labelKey: 'app_tab_prompts', label: '提示词管理' },
+  { id: 'mcp', icon: Cpu, labelKey: 'mcp_resource_hub', label: 'MCP 中心' },
+  { id: 'market', icon: Cloud, labelKey: 'app_tab_market', label: '提示词市场' },
+];
 
 // --- Safe Wrappers for Tauri Plugins ---
 const isTauri = typeof window !== 'undefined' && window.__TAURI_INTERNALS__;
@@ -43,6 +50,10 @@ const App = () => {
   // --- UI & Control State ---
   const [sidebarWidth, setSidebarWidth] = useState(380);
   const [isResizing, setIsResizing] = useState(false);
+  const [notesPanelHeight, setNotesPanelHeight] = useState(200);
+  const [isResizingNotes, setIsResizingNotes] = useState(false);
+  const notesResizeStartYRef = useRef(0);
+  const notesResizeStartHeightRef = useRef(200);
 
   // --- Core Data State ---
   const [templates, setTemplates] = useState([]);
@@ -63,7 +74,6 @@ const App = () => {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [isDiscoveryView, setDiscoveryView] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isMcpManagerOpen, setIsMcpManagerOpen] = useState(false);
   const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
   const [isDiffViewOpen, setIsDiffViewOpen] = useState(false);
   const [optimizeSuggestedContent, setOptimizeSuggestedContent] = useState(null);
@@ -71,7 +81,7 @@ const App = () => {
   const [isOptimizeEvalModalOpen, setIsOptimizeEvalModalOpen] = useState(false);
   const [isPromptToSkillModalOpen, setIsPromptToSkillModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const [appTopTab, setAppTopTab] = useState('prompts'); // 'prompts' | 'mcp' | 'market'
   const [user, setUser] = useState(authService.getUserInfo());
   /** 'requesting'=已发请求等待响应，'optimizing'=已收到首包，模型生成中；null=空闲 */
   const [optimizeStatus, setOptimizeStatus] = useState(null);
@@ -189,6 +199,40 @@ const App = () => {
       window.removeEventListener('mouseup', stopResizing);
     };
   }, [resize, stopResizing]);
+
+  // 注释区域高度拖拽：上下拖动边框调整注释窗体大小
+  const NOTES_PANEL_MIN = 120;
+  const NOTES_PANEL_MAX = 600;
+  const startNotesResize = useCallback((e) => {
+    notesResizeStartYRef.current = e.clientY;
+    notesResizeStartHeightRef.current = notesPanelHeight;
+    setIsResizingNotes(true);
+  }, [notesPanelHeight]);
+  const resizeNotes = useCallback((e) => {
+    if (!isResizingNotes) return;
+    const startY = notesResizeStartYRef.current;
+    const startH = notesResizeStartHeightRef.current;
+    const delta = startY - e.clientY; // 条在上方：向上拖条→注释区变高，向下拖条→注释区变矮
+    let next = Math.round(startH + delta);
+    next = Math.max(NOTES_PANEL_MIN, Math.min(NOTES_PANEL_MAX, next));
+    setNotesPanelHeight(next);
+  }, [isResizingNotes]);
+  const stopNotesResize = useCallback(() => setIsResizingNotes(false), []);
+  useEffect(() => {
+    if (!isResizingNotes) return;
+    const onMove = (e) => resizeNotes(e);
+    const onUp = () => {
+      stopNotesResize();
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [isResizingNotes, resizeNotes, stopNotesResize]);
   
   // --- Data Persistence Layer (Tauri) ---
   useEffect(() => {
@@ -691,7 +735,7 @@ const App = () => {
 
     setTemplates(prev => [newTemplate, ...prev]);
     setActiveTemplateId(newId);
-    setIsMarketOpen(false);
+    setAppTopTab('prompts');
     await message("提示词已安装到本地");
   };
 
@@ -872,12 +916,6 @@ const App = () => {
           </div>
         </>
       )}
-      {isMcpManagerOpen && (
-        <McpManager
-          onClose={() => setIsMcpManagerOpen(false)}
-          t={t}
-        />
-      )}
       {isPromptToSkillModalOpen && activeTemplate && (
         <PromptToSkillModal
           activeTemplate={activeTemplate}
@@ -946,15 +984,6 @@ const App = () => {
           onAuthSuccess={() => setUser(authService.getUserInfo())}
         />
       )}
-      {isMarketOpen && (
-        <div className="fixed inset-0 z-[80] bg-white">
-          <MarketView 
-            onClose={() => setIsMarketOpen(false)} 
-            onInstall={handleInstallPrompt}
-            t={t}
-          />
-        </div>
-      )}
       {isOptimizeEvalModalOpen && (
         <OptimizeEvalModal
           evaluation={optimizeEvaluation}
@@ -1012,119 +1041,166 @@ const App = () => {
           />
         );
       })()}
-      <div className="flex flex-1 h-full overflow-hidden">
-        {/* Left Sidebar */}
-        <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
-          <TemplatesSidebar
-            tagTree={tagTree}
-            displayTemplates={displayTemplates}
-            templates={templates}
-            activeTemplateId={activeTemplateId}
-            drafts={drafts}
-            setActiveTemplateId={setActiveTemplateId}
-            onAddTemplate={handleAddTemplate}
-            onDuplicateTemplate={handleDuplicateTemplate}
-            onDeleteTemplate={handleDeleteTemplate}
-            onRenameTemplate={startRenamingTemplate}
-            saveTemplateName={saveTemplateName}
-            editingTemplateNameId={editingTemplateNameId}
-            setEditingTemplateNameId={setEditingTemplateNameId}
-            tempTemplateName={tempTemplateName}
-            setTempTemplateName={setTempTemplateName}
-            tempTemplateAuthor={tempTemplateAuthor}
-            setTempTemplateAuthor={setTempTemplateAuthor}
-            language={language}
-            setLanguage={setLanguage}
-            t={t}
-            displayTag={displayTag}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            selectedTags={selectedTags}
-            setSelectedTags={setSelectedTags}
-            sortOrder={sortOrder}
-            setSortOrder={setSortOrder}
-            isSortMenuOpen={isSortMenuOpen}
-            setIsSortMenuOpen={setIsSortMenuOpen}
-            setRandomSeed={setRandomSeed}
-            setDiscoveryView={setDiscoveryView}
-            setIsSettingsOpen={setIsSettingsOpen}
-            setIsMcpManagerOpen={setIsMcpManagerOpen}
-            setIsMarketOpen={setIsMarketOpen}
-            onCloudSync={handleCloudSync}
-            onManageTags={() => setIsTagManagerOpen(true)}
-            isOpenDirectory={isOpenDirectory}
-            toggleDirectory={toggleDirectory}
-            collapseAllDirectories={collapseAllDirectories}
-          />
-        </div>
-        <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200 h-full"/>
-        
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden">
-           {activeTemplate ? (
-             <>
-               <EditorToolbar
-                 activeTemplate={activeTemplate}
-                 onCopy={handleCopy}
-                 copied={copied}
-                 isDraft={isDraft}
-                 t={t}
-                 language={language}
-                 onSaveAsNew={handleSaveAsNew}
-                 onGenerate={handleGenerate}
-                 onUpdateTemplate={handleUpdateTemplate}
-                 onOpenTagMenu={onOpenTagMenu}
-                 onCloseTagMenu={onCloseTagMenu}
-                 onOpenHistory={onOpenHistory}
-                 onCloseHistory={onCloseHistory}
-                 onRestoreVersion={handleRestoreVersion}
-                 onOpenDiff={() => { setOptimizeSuggestedContent(null); setOptimizeEvaluation(null); setHistoryDiffTarget(null); setIsDiffViewOpen(true); }}
-                 onOptimize={handleOptimize}
-                 optimizeStatus={optimizeStatus}
-                 onOpenToolMenu={onOpenToolMenu}
-                 selectedTools={selectedTools}
-                 onSaveAsSkill={handleSaveAsSkill}
-                 isSkillOutdated={isSkillOutdated}
-                 onShare={handleShare}
-               />
-                <div className="flex-grow relative h-full flex flex-col">
-                    {/* 纯文本编辑器 */}
-                    <div className="flex-1 relative overflow-hidden">
-                        <PlainTextEditor
-                            ref={editorRef}
-                            key={activeTemplate.id}
-                            value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
-                            banks={banks}
-                            categories={categories}
-                            onVariableClick={handleVariableClick}
-                            activeTemplate={activeTemplate}
-                            defaults={defaults}
-                            language={language}
-                            onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
-                        />
-                    </div>
-                    <NotesEditor
-                        notes={activeTemplate.notes}
-                        onSaveNotes={onSaveNotes}
-                        templateId={activeTemplateId}
-                        t={t}
-                    />
-                </div>
-             </>
-           ) : (
-             <div className="flex-1 flex items-center justify-center text-gray-400">Select a template.</div>
-           )}
-        </main>
+      <div className="flex flex-1 h-full overflow-hidden min-h-0">
+        {/* 顶级标签栏：左侧竖向，固定宽度，缩放抗乱序 */}
+        <nav className="app-top-tab-bar flex-shrink-0 w-16 min-w-[64px] flex flex-col items-center py-3 gap-1 bg-white border-r border-gray-200">
+          {APP_TOP_TABS.map(({ id, icon: Icon, labelKey, label }) => {
+            const tabLabel = t(labelKey) || label;
+            const isActive = appTopTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setAppTopTab(id)}
+                title={tabLabel}
+                className={`app-top-tab-btn flex flex-col items-center justify-center min-h-[44px] min-w-[44px] w-full py-2 px-1 rounded-lg transition-colors ${
+                  isActive ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-100 hover:text-orange-600'
+                }`}
+              >
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="flex-shrink-0" aria-hidden />
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* 提示词管理：侧栏 + 主内容 */}
+        {appTopTab === 'prompts' && (
+          <>
+            <div style={{ width: `${sidebarWidth}px` }} className="relative flex flex-col flex-shrink-0 h-full">
+              <TemplatesSidebar
+                tagTree={tagTree}
+                displayTemplates={displayTemplates}
+                templates={templates}
+                activeTemplateId={activeTemplateId}
+                drafts={drafts}
+                setActiveTemplateId={setActiveTemplateId}
+                onAddTemplate={handleAddTemplate}
+                onDuplicateTemplate={handleDuplicateTemplate}
+                onDeleteTemplate={handleDeleteTemplate}
+                onRenameTemplate={startRenamingTemplate}
+                saveTemplateName={saveTemplateName}
+                editingTemplateNameId={editingTemplateNameId}
+                setEditingTemplateNameId={setEditingTemplateNameId}
+                tempTemplateName={tempTemplateName}
+                setTempTemplateName={setTempTemplateName}
+                tempTemplateAuthor={tempTemplateAuthor}
+                setTempTemplateAuthor={setTempTemplateAuthor}
+                language={language}
+                setLanguage={setLanguage}
+                t={t}
+                displayTag={displayTag}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                selectedTags={selectedTags}
+                setSelectedTags={setSelectedTags}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+                isSortMenuOpen={isSortMenuOpen}
+                setIsSortMenuOpen={setIsSortMenuOpen}
+                setRandomSeed={setRandomSeed}
+                setDiscoveryView={setDiscoveryView}
+                setIsSettingsOpen={setIsSettingsOpen}
+                onCloudSync={handleCloudSync}
+                onManageTags={() => setIsTagManagerOpen(true)}
+                isOpenDirectory={isOpenDirectory}
+                toggleDirectory={toggleDirectory}
+                collapseAllDirectories={collapseAllDirectories}
+              />
+            </div>
+            <div onMouseDown={startResizing} className="w-2 cursor-col-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200 h-full flex-shrink-0"/>
+            <main className="flex-1 flex flex-col relative z-10 h-full overflow-hidden min-w-0">
+               {activeTemplate ? (
+                 <>
+                   <EditorToolbar
+                     activeTemplate={activeTemplate}
+                     onCopy={handleCopy}
+                     copied={copied}
+                     isDraft={isDraft}
+                     t={t}
+                     language={language}
+                     onSaveAsNew={handleSaveAsNew}
+                     onGenerate={handleGenerate}
+                     onUpdateTemplate={handleUpdateTemplate}
+                     onOpenTagMenu={onOpenTagMenu}
+                     onCloseTagMenu={onCloseTagMenu}
+                     onOpenHistory={onOpenHistory}
+                     onCloseHistory={onCloseHistory}
+                     onRestoreVersion={handleRestoreVersion}
+                     onOpenDiff={() => { setOptimizeSuggestedContent(null); setOptimizeEvaluation(null); setHistoryDiffTarget(null); setIsDiffViewOpen(true); }}
+                     onOptimize={handleOptimize}
+                     optimizeStatus={optimizeStatus}
+                     onOpenToolMenu={onOpenToolMenu}
+                     selectedTools={selectedTools}
+                     onSaveAsSkill={handleSaveAsSkill}
+                     isSkillOutdated={isSkillOutdated}
+                     onShare={handleShare}
+                   />
+                   <div className="flex-grow relative h-full flex flex-col min-h-0">
+                     <div className="flex-1 min-h-0 relative overflow-hidden">
+                       <PlainTextEditor
+                         ref={editorRef}
+                         key={activeTemplate.id}
+                         value={drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage)}
+                         banks={banks}
+                         categories={categories}
+                         onVariableClick={handleVariableClick}
+                         activeTemplate={activeTemplate}
+                         defaults={defaults}
+                         language={language}
+                         onUpdate={(newContent) => setDrafts(prev => ({...prev, [activeTemplateId]: newContent}))}
+                       />
+                     </div>
+                     <div
+                       role="separator"
+                       aria-label="拖动调整注释区高度"
+                       onMouseDown={startNotesResize}
+                       className="h-2 flex-shrink-0 cursor-row-resize bg-gray-200 hover:bg-orange-300 transition-colors duration-200 flex items-center justify-center group"
+                     >
+                       <span className="w-12 h-0.5 rounded-full bg-gray-400 group-hover:bg-orange-500 transition-colors opacity-0 group-hover:opacity-100" />
+                     </div>
+                     <div className="flex-shrink-0 overflow-hidden flex flex-col" style={{ height: notesPanelHeight }}>
+                       <NotesEditor
+                         notes={activeTemplate.notes}
+                         onSaveNotes={onSaveNotes}
+                         templateId={activeTemplateId}
+                         t={t}
+                         fillHeight
+                       />
+                     </div>
+                   </div>
+                 </>
+               ) : (
+                 <div className="flex-1 flex items-center justify-center text-gray-400">Select a template.</div>
+               )}
+            </main>
+          </>
+        )}
+
+        {/* MCP 中心：嵌入主内容区 */}
+        {appTopTab === 'mcp' && (
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-white">
+            <McpManager onClose={() => setAppTopTab('prompts')} t={t} />
+          </div>
+        )}
+
+        {/* 提示词市场：嵌入主内容区 */}
+        {appTopTab === 'market' && (
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gray-50">
+            <MarketView onClose={() => setAppTopTab('prompts')} onInstall={handleInstallPrompt} t={t} />
+          </div>
+        )}
       </div>
-      
-      {/* Banks Sidebar (Now Floating) */}
-      <BanksSidebar
+
+      {/* 词库侧栏：仅在提示词管理页显示 */}
+      {appTopTab === 'prompts' && (
+        <BanksSidebar
           banks={banks}
           categories={categories}
           onInsert={insertVariableToTemplate}
           language={language}
           t={t}
-      />
+        />
+      )}
     </div>
   );
 };

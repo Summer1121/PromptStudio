@@ -14,10 +14,11 @@ export const makeUniqueKey = (base, existingKeys, suffix = "custom") => {
   return candidate;
 };
 
-// 获取本地化文本
+// 获取本地化文本（obj 可为 string 或 { cn: "...", en: "..." }）
 export const getLocalized = (obj, language) => {
   if (!obj) return "";
   if (typeof obj === 'string') return obj;
+  const localizedValue = obj[language] ?? obj.en ?? obj.cn ?? (Object.values(obj)[0] ?? "");
   return localizedValue;
 };
 
