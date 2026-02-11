@@ -18,7 +18,7 @@ export const makeUniqueKey = (base, existingKeys, suffix = "custom") => {
 export const getLocalized = (obj, language) => {
   if (!obj) return "";
   if (typeof obj === 'string') return obj;
-  return localizedValue;
+  return obj[language] || obj['cn'] || "";
 };
 
 /**

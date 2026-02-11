@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, RotateCcw, Globe, Settings, ArrowUpDown, Home, Pencil, Copy as CopyIcon, Download, Trash2, Plus, FoldVertical, Cpu, Cloud, CloudUpload, Bell } from 'lucide-react';
+import { Search, RotateCcw, Globe, Settings, ArrowUpDown, Home, Pencil, Copy as CopyIcon, Download, Trash2, Plus, FoldVertical, Cpu, Cloud, UploadCloud, Bell } from 'lucide-react';
 import { getLocalized } from '../utils/helpers';
 import Directory from './Directory';
 import { TagFilterDropdown } from './TagFilterDropdown';
@@ -90,7 +90,7 @@ export const TemplatesSidebar = React.memo(({
                     <button onClick={() => setLanguage(language === 'cn' ? 'en' : 'cn')} className="text-[10px] px-2 py-1 rounded-full border transition-colors flex items-center gap-1 shadow-sm bg-transparent text-gray-400 border-gray-200 hover:text-orange-600 hover:bg-orange-50"><Globe size={10} />{language.toUpperCase()}</button>
                     <button onClick={() => setIsMcpManagerOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('mcp_resource_hub')}><Cpu size={16} /></button>
                     <button onClick={() => setIsMarketOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="提示词市场"><Cloud size={16} /></button>
-                    <button onClick={onCloudSync} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="云端备份"><CloudUpload size={16} /></button>
+                    <button onClick={onCloudSync} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="云端备份"><UploadCloud size={16} /></button>
                     <button className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="通知中心"><Bell size={16} /></button>
                     <button onClick={() => setIsSettingsOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('settings')}><Settings size={16} /></button>
               </div>
