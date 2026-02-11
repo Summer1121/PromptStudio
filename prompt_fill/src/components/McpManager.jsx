@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Play, Square, Terminal, Plus, X, Cpu, Globe, Code, Save, RotateCcw, HelpCircle } from 'lucide-react';
+import { Settings, Play, Square, Terminal, Plus, X, Cpu, Globe, Code, Save, RotateCcw, HelpCircle, ArrowLeft } from 'lucide-react';
 import { listMcpTools, getMcpServers, getLastActiveServers, startMcpServer, stopMcpServer, getAllServers } from '../services/mcp-service';
 import { confirm, message } from '@tauri-apps/plugin-dialog';
 
@@ -162,35 +162,31 @@ def run_tool(param1: str) -> str:
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
-                {/* Header */}
-                <div className="px-6 py-4 border-b flex items-center justify-between bg-gray-50">
+        <div className="relative flex flex-col h-full bg-gray-50 overflow-hidden">
+            {/* 与提示词市场统一的 tab 内页头部 */}
+            <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-4">
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600" title="返回">
+                        <ArrowLeft size={20} />
+                    </button>
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
-                            <Cpu size={24} />
+                            <Cpu size={20} />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-gray-800">{t('mcp_resource_hub')}</h2>
+                            <h1 className="text-xl font-bold text-gray-800">{t('mcp_resource_hub')}</h1>
                             <p className="text-sm text-gray-500">管理本地 AI 技能与 MCP 服务</p>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => setShowHelp(true)}
-                            className="p-2 hover:bg-gray-200 rounded-full transition-colors text-blue-500"
-                            title="如何连接"
-                        >
-                            <HelpCircle size={20} />
-                        </button>
-                        <button 
-                            onClick={onClose}
-                            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                        >
-                            <X size={20} className="text-gray-400" />
-                        </button>
-                    </div>
                 </div>
+                <button
+                    onClick={() => setShowHelp(true)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-blue-500"
+                    title="如何连接"
+                >
+                    <HelpCircle size={20} />
+                </button>
+            </header>
 
                 {/* Help Modal */}
                 {showHelp && (
@@ -231,24 +227,24 @@ def run_tool(param1: str) -> str:
                     </div>
                 )}
 
-                {/* Tabs */}
-                <div className="flex border-b px-6 bg-white">
-                    <button 
-                        onClick={() => setActiveTab('servers')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'servers' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    >
-                        已连接的服务 (Servers)
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('skills')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'skills' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    >
-                        我的技能 (Skills)
-                    </button>
-                </div>
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 px-6 bg-white flex-shrink-0">
+                <button 
+                    onClick={() => setActiveTab('servers')}
+                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'servers' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    已连接的服务 (Servers)
+                </button>
+                <button 
+                    onClick={() => setActiveTab('skills')}
+                    className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'skills' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    我的技能 (Skills)
+                </button>
+            </div>
 
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 bg-gray-50/30">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 min-h-0">
                     {activeTab === 'servers' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {servers.length > 0 ? servers.map(server => (
@@ -386,15 +382,14 @@ def run_tool(param1: str) -> str:
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="px-6 py-4 border-t bg-white flex justify-end">
-                    <button 
-                        onClick={refreshData}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                        <RotateCcw size={14} /> 刷新列表
-                    </button>
-                </div>
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-white flex justify-end flex-shrink-0">
+                <button 
+                    onClick={refreshData}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                    <RotateCcw size={14} /> 刷新列表
+                </button>
             </div>
         </div>
     );

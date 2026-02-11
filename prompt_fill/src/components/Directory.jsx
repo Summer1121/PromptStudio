@@ -30,7 +30,7 @@ const TemplateItem = ({ t_item, activeTemplateId, drafts, setActiveTemplateId, o
                     {isDraft && (
                       <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" title={t('draft_status')}></span>
                     )}
-                    <span className={`truncate text-sm transition-all ${activeTemplateId === t_item.id ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>{getLocalized(t_item.name, language)}</span>
+                    <span className={`truncate list-item-text transition-all ${activeTemplateId === t_item.id ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>{getLocalized(t_item.name, language)}</span>
                   </>
                 )}
             </div>

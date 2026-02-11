@@ -39,7 +39,7 @@ async function convertMediaPathsInHtml(html) {
   return convertedHtml;
 }
 
-export const NotesEditor = ({ notes, onSaveNotes, t, templateId }) => {
+export const NotesEditor = ({ notes, onSaveNotes, t, templateId, fillHeight = false }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 保存状态：'saving', 'success', 'error'
@@ -173,8 +173,11 @@ export const NotesEditor = ({ notes, onSaveNotes, t, templateId }) => {
 
   return (
     <>
-      <div className="bg-white border-t border-gray-200 notes-editor-container flex-shrink-0" style={{ minHeight: '200px', maxHeight: '400px' }}>
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+      <div
+        className="bg-white border-t border-gray-200 notes-editor-container flex-shrink-0 flex flex-col overflow-hidden"
+        style={fillHeight ? { height: '100%', minHeight: 0 } : { minHeight: '200px', maxHeight: '400px' }}
+      >
+        <div className="p-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
           <h3 className="text-sm font-semibold text-gray-700">{t('notes')}</h3>
           <div className="flex items-center gap-2">
             <button
@@ -206,9 +209,9 @@ export const NotesEditor = ({ notes, onSaveNotes, t, templateId }) => {
             </button>
           </div>
         </div>
-        <div className="relative flex flex-col" style={{ height: 'calc(100% - 57px)', minHeight: 'calc(45px + 6rem)' }}>
+        <div className="relative flex flex-col flex-1 min-h-0" style={fillHeight ? {} : { minHeight: 'calc(45px + 6rem)' }}>
           {editor && <NotesToolbar editor={editor} t={t} templateId={templateId} />}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-4" style={{ minHeight: '6rem' }}>
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0" style={fillHeight ? {} : { minHeight: '6rem' }}>
             <EditorContent
               editor={editor}
             />

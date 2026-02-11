@@ -55,12 +55,12 @@ export const TemplatesSidebar = React.memo(({
   return (
     <div className="relative flex flex-col flex-shrink-0 h-full w-full border-r border-gray-200 bg-white overflow-hidden">
       <div className="flex flex-col w-full h-full">
-        <div className="flex-shrink-0 p-5 border-b border-gray-200 bg-white">
-          <div className="flex items-center justify-between mb-3">
-              <h1 className="font-bold tracking-tight text-sm text-orange-500">提示词管理器</h1>
-              <div className="flex items-center gap-1.5">
-                    <button onClick={() => setDiscoveryView(true)} className="p-1.5 rounded-lg transition-all text-orange-500 bg-orange-50/50 hover:text-orange-600 hover:bg-orange-100 shadow-sm" title={t('back_to_discovery')}><Home size={18} /></button>
-                    <button onClick={handleResetTemplate} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('refresh_desc')}><RotateCcw size={16} /></button>
+        <div className="flex-shrink-0 p-5 border-b border-gray-200 bg-white sidebar-header-min-height">
+          {/* 标题单独一行 */}
+          <h1 className="font-bold tracking-tight text-orange-500 text-min-readable mb-3">提示词管理器</h1>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+                    <button onClick={() => setDiscoveryView(true)} className="p-1.5 rounded-lg transition-all text-orange-500 bg-orange-50/50 hover:text-orange-600 hover:bg-orange-100 shadow-sm min-touch-target flex items-center justify-center" title={t('back_to_discovery')}><Home size={18} /></button>
+                    <button onClick={handleResetTemplate} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center" title={t('refresh_desc')}><RotateCcw size={16} /></button>
                     <div className="relative">
                       <button onClick={() => setIsSortMenuOpen(!isSortMenuOpen)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('sort')}><ArrowUpDown size={16} /></button>
                       {isSortMenuOpen && (
@@ -87,12 +87,10 @@ export const TemplatesSidebar = React.memo(({
                         </div>
                       )}
                     </div>
-                    <button onClick={() => setLanguage(language === 'cn' ? 'en' : 'cn')} className="text-[10px] px-2 py-1 rounded-full border transition-colors flex items-center gap-1 shadow-sm bg-transparent text-gray-400 border-gray-200 hover:text-orange-600 hover:bg-orange-50"><Globe size={10} />{language.toUpperCase()}</button>
-                    <button onClick={() => setIsMcpManagerOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('mcp_resource_hub')}><Cpu size={16} /></button>
-                    <button onClick={() => setIsMarketOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="提示词市场"><Cloud size={16} /></button>
-                    <button onClick={onCloudSync} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="云端备份"><UploadCloud size={16} /></button>
-                    <button className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title="通知中心"><Bell size={16} /></button>
-                    <button onClick={() => setIsSettingsOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50" title={t('settings')}><Settings size={16} /></button>
+                    <button onClick={() => setLanguage(language === 'cn' ? 'en' : 'cn')} className="text-[10px] px-2 py-1 rounded-full border transition-colors flex items-center gap-1 shadow-sm bg-transparent text-gray-400 border-gray-200 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center"><Globe size={10} />{language.toUpperCase()}</button>
+                    <button onClick={onCloudSync} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center" title="云端备份"><UploadCloud size={16} /></button>
+                    <button className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center" title="通知中心"><Bell size={16} /></button>
+                    <button onClick={() => setIsSettingsOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center" title={t('settings')}><Settings size={16} /></button>
               </div>
           </div>
           <div className="flex flex-col gap-3">
