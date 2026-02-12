@@ -17,26 +17,51 @@ class StdioRpcClient:
     async def start(self):
         if not self.mcp_process.process:
             raise RuntimeError(f"服务器 [{self.mcp_process.name}] 进程未启动")
+        if self._is_running:
+            return
         self._is_running = True
-        asyncio.create_task(self._read_loop())
+        self._read_task = asyncio.create_task(self._read_loop())
+
+    async def stop(self):
+        """停止客户端并清理任务"""
+        self._is_running = False
+        if hasattr(self, '_read_task'):
+            self._read_task.cancel()
+            try:
+                await self._read_task
+            except asyncio.CancelledError:
+                pass
+        
+        # 清理待处理的请求
+        for future in self.pending_requests.values():
+            if not future.done():
+                future.set_exception(Exception("Client stopped"))
+        self.pending_requests.clear()
 
     async def _read_loop(self):
         """循环读取 stdout 中的 JSON-RPC 消息"""
         stdout = self.mcp_process.process.stdout
-        while self._is_running:
-            line = await stdout.readline()
-            if not line:
-                break
-            
-            clean_line = line.decode('utf-8').strip()
-            if not clean_line:
-                continue
+        try:
+            while self._is_running:
+                line = await stdout.readline()
+                if not line:
+                    break
+                
+                clean_line = line.decode('utf-8').strip()
+                if not clean_line:
+                    continue
 
-            try:
-                message = json.loads(clean_line)
-                self._handle_message(message)
-            except json.JSONDecodeError:
-                logger.debug(f"[{self.mcp_process.name}] 非 JSON 输出: {clean_line}")
+                try:
+                    message = json.loads(clean_line)
+                    self._handle_message(message)
+                except json.JSONDecodeError:
+                    logger.debug(f"[{self.mcp_process.name}] 非 JSON 输出: {clean_line}")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"[{self.mcp_process.name}] Read loop error: {e}")
+        finally:
+            self._is_running = False
 
     def _handle_message(self, message: Dict[str, Any]):
         msg_id = message.get("id")
@@ -46,7 +71,15 @@ class StdioRpcClient:
                 future = self.pending_requests[msg_id]
                 if not future.done():
                     if "error" in message:
-                        future.set_exception(Exception(message["error"]))
+                        error_obj = message["error"]
+                        # 提取更详细的错误信息，包括 data 字段（通常包含堆栈）
+                        if isinstance(error_obj, dict):
+                            msg = error_obj.get("message", "")
+                            data = error_obj.get("data", "")
+                            error_msg = f"{msg} {data}".strip() or json.dumps(error_obj)
+                        else:
+                            error_msg = str(error_obj)
+                        future.set_exception(Exception(error_msg))
                     else:
                         future.set_result(message.get("result"))
         else:

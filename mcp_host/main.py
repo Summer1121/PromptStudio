@@ -1,8 +1,12 @@
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import mcp_routes
-from .services.process_manager import mcp_manager
+try:
+    from api import mcp_routes
+    from services.process_manager import mcp_manager
+except ImportError:
+    from .api import mcp_routes
+    from .services.process_manager import mcp_manager
 import logging
 
 # 配置日志
@@ -17,7 +21,7 @@ app = FastAPI(title="PromptStudio Local MCP Host", version="1.0.0")
 # 跨域配置 (Tauri)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex="http://localhost:.*",  # 允许本地开发的所有端口
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,4 +42,11 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     # 显式排除 skills 目录（尽管我们已经移到了 home 目录）以防万一
-    uvicorn.run("mcp_host.main:app", host="0.0.0.0", port=19880, reload=True, reload_excludes=["skills"])
+    uvicorn.run(
+        "mcp_host.main:app", 
+        host="0.0.0.0", 
+        port=19880, 
+        reload=True, 
+        reload_excludes=["skills"],
+        timeout_keep_alive=300
+    )

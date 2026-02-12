@@ -41,10 +41,32 @@ class McpProcess:
             )
             self.is_running = True
             logger.info(f"MCP 服务器 [{self.name}] 已启动，PID: {self.process.pid}")
+            
+            # 启动一个后台任务读取 stderr，记录到日志
+            asyncio.create_task(self._read_stderr())
         except Exception as e:
             logger.error(f"启动 MCP 服务器 [{self.name}] 失败: {e}")
             self.is_running = False
             raise
+
+    async def _read_stderr(self):
+        if not self.process or not self.process.stderr:
+            return
+        while self.is_running:
+            line = await self.process.stderr.readline()
+            if not line:
+                break
+            content = line.decode('utf-8').strip()
+            if content:
+                # 根据内容简单判断日志级别，避免全是 ERROR 误导用户
+                lower_content = content.lower()
+                if "error" in lower_content or "exception" in lower_content or "traceback" in lower_content:
+                    logger.error(f"[{self.name} STDERR] {content}")
+                elif "warn" in lower_content:
+                    logger.warning(f"[{self.name} STDERR] {content}")
+                else:
+                    # 默认使用 INFO，因为 FastMCP 很多正常状态输出在 stderr
+                    logger.info(f"[{self.name} STDERR] {content}")
 
     async def stop(self):
         if self.process:
@@ -122,8 +144,11 @@ class McpProcessManager:
     async def start_server(self, name: str, info: dict):
         # 更新配置中的状态
         config = self.load_config()
-        if name not in config.get("servers", {}):
-            config.setdefault("servers", {})[name] = info
+        if "servers" not in config:
+            config["servers"] = {}
+        
+        if name not in config["servers"]:
+            config["servers"][name] = info
         
         config["servers"][name]["last_status"] = "running"
         # 更新 info 以防参数变化
@@ -177,14 +202,22 @@ class McpProcessManager:
 
     async def stop_server(self, name: str):
         # 更新配置状态
-        config = self.load_config()
-        if name in config.get("servers", {}):
-            config["servers"][name]["last_status"] = "stopped"
-            self._save_config(config)
+        try:
+            config = self.load_config()
+            if name in config.get("servers", {}):
+                config["servers"][name]["last_status"] = "stopped"
+                self._save_config(config)
+        except Exception as e:
+            logger.error(f"Error updating config in stop_server for {name}: {e}")
 
         if name in self.processes:
-            await self.processes[name].stop()
-            del self.processes[name]
+            try:
+                await self.processes[name].stop()
+            except Exception as e:
+                logger.error(f"Error calling stop() on process {name}: {e}")
+            finally:
+                if name in self.processes:
+                    del self.processes[name]
 
     async def shutdown(self):
         tasks = []

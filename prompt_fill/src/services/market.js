@@ -11,9 +11,10 @@ export const marketService = {
     },
 
     async publishPrompt(promptData) {
-        // promptData 包含 title, description, tags, content
-        // 第一次发布创建，后续发布可能需要特殊处理版本（目前的后端逻辑是 CRUD）
-        // 我们在发布前可以先检查敏感信息
+        // 如果包含 uuid，则是更新现有提示词
+        if (promptData.uuid) {
+            return apiClient.put(`/market/prompts/${promptData.uuid}/`, promptData);
+        }
         return apiClient.post('/market/prompts/', promptData);
     },
 

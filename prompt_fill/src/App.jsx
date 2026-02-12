@@ -40,12 +40,18 @@ const confirm = async (msg, options) => {
 };
 
 const message = async (msg, options) => {
-  if (isTauri) return await tauriMessage(msg, options);
+  if (isTauri) {
+    try {
+      return await tauriMessage(msg, options);
+    } catch (err) {
+      console.error('Tauri message failed:', err);
+    }
+  }
   window.alert(msg);
 };
 
 const App = () => {
-  const APP_VERSION = "0.7.2"; // Final authoritative version with Tauri dialog
+  const APP_VERSION = "0.5.1"; // Updated to match package.json
 
   // --- UI & Control State ---
   const [sidebarWidth, setSidebarWidth] = useState(380);
@@ -689,7 +695,8 @@ const App = () => {
     const content = drafts[activeTemplateId] ?? getLocalized(activeTemplate.content, templateLanguage);
     
     try {
-      await publishService.publish({
+      const result = await publishService.publish({
+        uuid: activeTemplate.marketId,
         title: getLocalized(activeTemplate.name, language),
         description: activeTemplate.notes || "",
         content: content,
@@ -698,6 +705,14 @@ const App = () => {
       }, async (sensitive) => {
         return confirm(`检测到敏感信息: ${sensitive.join(', ')}\n是否继续发布？`);
       });
+
+      if (result && !activeTemplate.marketId) {
+        // 更新本地模板的 marketId
+        setTemplates(prev => prev.map(t => 
+          t.id === activeTemplateId ? { ...t, marketId: result.uuid } : t
+        ));
+      }
+      
       await message("发布成功！");
     } catch (err) {
       await message("发布失败: " + err.message);

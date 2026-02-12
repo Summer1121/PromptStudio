@@ -20,11 +20,20 @@ def run_skill(script_path: str):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
-        # 扫描模块中的函数，如果有特定装饰器或者特定名称则注册
+        import inspect
+
+        # 扫描模块中的函数，只注册真正的函数，跳过类
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
-            if callable(attr) and not attr_name.startswith("_") and attr.__module__ == "user_skill":
-                mcp.tool()(attr)
+            
+            # 必须是可调用的，且不是私有的，且定义在该模块中
+            if callable(attr) and not attr_name.startswith("_") and getattr(attr, "__module__", "") == "user_skill":
+                # 排除类，只接受函数
+                if inspect.isfunction(attr):
+                    # 如果已经有 mcp 实例注册过了，FastMCP 会处理
+                    # 这里我们统一注册到 runner 创建的 mcp 实例上
+                    mcp.tool()(attr)
+                    print(f"已注册工具: {attr_name}", file=sys.stderr)
 
         logger_info = f"已从 {script_path} 加载并注册工具"
         print(logger_info, file=sys.stderr)

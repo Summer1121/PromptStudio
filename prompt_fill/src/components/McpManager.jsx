@@ -135,6 +135,33 @@ def run_tool(param1: str) -> str:
         }
     };
 
+    const handleDeleteSkill = async (e, skill) => {
+        e.stopPropagation();
+        const confirmed = await confirm(`确定要删除技能 "${skill.name}" 吗？此操作不可撤销。`, { 
+            title: '删除技能',
+            type: 'warning'
+        });
+        
+        if (confirmed) {
+            try {
+                const res = await fetch(`http://localhost:19880/api/v1/mcp/skills/${skill.name}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    if (selectedSkill?.name === skill.name) {
+                        setIsEditingSkill(false);
+                        setSelectedSkill(null);
+                    }
+                    await refreshData();
+                    await message('技能已删除');
+                }
+            } catch (error) {
+                console.error('Failed to delete skill', error);
+                await message(`删除失败: ${error.message}`);
+            }
+        }
+    };
+
     const handleStartServer = async (serverName) => {
         try {
             await startMcpServer(serverName);
@@ -153,6 +180,28 @@ def run_tool(param1: str) -> str:
             await message(`服务器 ${serverName} 已停止`);
         } catch (e) {
             console.error('Stop server failed', e);
+        }
+    };
+
+    const handleDeleteServer = async (serverName) => {
+        const confirmed = await confirm(`确定要移除 MCP 服务 "${serverName}" 吗？`, { 
+            title: '移除服务',
+            type: 'warning'
+        });
+        
+        if (confirmed) {
+            try {
+                const res = await fetch(`http://localhost:19880/api/v1/mcp/server/${serverName}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    await refreshData();
+                    await message('服务已移除');
+                }
+            } catch (error) {
+                console.error('Failed to delete server', error);
+                await message(`移除失败: ${error.message}`);
+            }
         }
     };
 
@@ -280,13 +329,22 @@ def run_tool(param1: str) -> str:
                                                     </button>
                                                 </>
                                             ) : (
-                                                <button 
-                                                    onClick={() => handleStartServer(server.name)}
-                                                    className="p-1.5 hover:bg-green-50 text-green-600 rounded" 
-                                                    title="启动"
-                                                >
-                                                    <Play size={16} />
-                                                </button>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={() => handleStartServer(server.name)}
+                                                        className="p-1.5 hover:bg-green-50 text-green-600 rounded" 
+                                                        title="启动"
+                                                    >
+                                                        <Play size={16} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteServer(server.name)}
+                                                        className="p-1.5 hover:bg-red-50 text-red-400 rounded" 
+                                                        title="移除配置"
+                                                    >
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -327,14 +385,23 @@ def run_tool(param1: str) -> str:
                                 </div>
                                 <div className="flex-1 overflow-y-auto">
                                     {skills.map(skill => (
-                                        <button 
+                                        <div 
                                             key={skill.name}
                                             onClick={() => handleSelectSkill(skill)}
-                                            className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-50 ${selectedSkill?.name === skill.name ? 'bg-orange-50 text-orange-700 border-l-4 border-l-orange-500' : 'text-gray-700'}`}
+                                            className={`group w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-50 flex items-center justify-between cursor-pointer ${selectedSkill?.name === skill.name ? 'bg-orange-50 text-orange-700 border-l-4 border-l-orange-500' : 'text-gray-700'}`}
                                         >
-                                            <div className="font-medium">{skill.name}</div>
-                                            <div className="text-xs text-gray-400 truncate">{skill.filename}</div>
-                                        </button>
+                                            <div className="overflow-hidden">
+                                                <div className="font-medium truncate">{skill.name}</div>
+                                                <div className="text-xs text-gray-400 truncate">{skill.filename}</div>
+                                            </div>
+                                            <button 
+                                                onClick={(e) => handleDeleteSkill(e, skill)}
+                                                className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 text-red-400 rounded transition-all"
+                                                title="删除技能"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
                                     ))}
                                     {skills.length === 0 && (
                                         <div className="p-4 text-center text-xs text-gray-400">

@@ -86,25 +86,46 @@ const MarketView = ({ onClose, onInstall, t }) => {
 const MarketPromptDetail = ({ promptUuid, onBack, onInstall, t }) => {
     const [prompt, setPrompt] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [comment, setComment] = useState('');
 
     useEffect(() => {
-        marketService.getPromptDetail(promptUuid).then(data => {
-            setPrompt(data);
-            setLoading(false);
-        });
+        setLoading(true);
+        marketService.getPromptDetail(promptUuid)
+            .then(data => {
+                setPrompt(data);
+                setError(null);
+            })
+            .catch(err => {
+                console.error(err);
+                setError('加载详情失败');
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     }, [promptUuid]);
 
     const handleLike = async () => {
-        await marketService.interact(promptUuid, 'like');
-        setPrompt(prev => ({ ...prev, like_count: prev.like_count + 1 }));
+        try {
+            await marketService.interact(promptUuid, 'like');
+            setPrompt(prev => ({ ...prev, like_count: (prev.like_count || 0) + 1 }));
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const handleInstall = () => {
-        onInstall(prompt);
+        if (prompt) onInstall(prompt);
     };
 
     if (loading) return <div className="flex-1 flex items-center justify-center">加载中...</div>;
+    if (error) return (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <div className="text-red-500">{error}</div>
+            <button onClick={onBack} className="px-4 py-2 border rounded hover:bg-gray-50">返回列表</button>
+        </div>
+    );
+    if (!prompt) return <div className="flex-1 flex items-center justify-center">未找到该提示词</div>;
 
     return (
         <div className="flex flex-col h-full bg-white overflow-hidden">

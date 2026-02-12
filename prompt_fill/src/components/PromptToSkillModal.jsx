@@ -17,9 +17,13 @@ export const PromptToSkillModal = ({
     const [editedCode, setEditedCode] = useState('');
     const [skillName, setSkillName] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const hasAnalyzed = React.useRef(false);
 
     useEffect(() => {
-        analyzePrompt();
+        if (!hasAnalyzed.current) {
+            hasAnalyzed.current = true;
+            analyzePrompt();
+        }
     }, []);
 
     const analyzePrompt = async () => {
@@ -42,16 +46,38 @@ export const PromptToSkillModal = ({
                 llmSettings,
                 systemContent: PROMPT_TO_SKILL_SYSTEM,
                 userContent: buildPromptToSkillUserPrompt(title, content, variables)
-            });
+            }, { timeout: 300000 }); // 5 minutes timeout for code generation
 
             let data;
             try {
-                // Try to find JSON if model output extra text
-                const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
-                data = JSON.parse(jsonStr);
+                // More robust extraction: find the first { and the last }
+                const startIdx = text.indexOf('{');
+                const endIdx = text.lastIndexOf('}');
+                
+                if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
+                    throw new Error('No JSON object found in response');
+                }
+                
+                let jsonContent = text.substring(startIdx, endIdx + 1);
+                
+                // Sometimes AI returns escaped newlines or other characters if it's double-encoded
+                // but usually standard JSON.parse handles it. 
+                // We'll try to parse the extracted substring directly.
+                data = JSON.parse(jsonContent);
             } catch (e) {
                 console.error('Failed to parse AI output:', text);
-                throw new Error('AI 返回格式错误，请重试');
+                // Fallback: try to clean up more aggressively if first attempt failed
+                try {
+                    let cleanText = text.replace(/```json\n?|```\n?/g, '').trim();
+                    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        data = JSON.parse(jsonMatch[0]);
+                    } else {
+                        throw e;
+                    }
+                } catch (e2) {
+                    throw new Error('AI 返回格式错误，请重试');
+                }
             }
 
             setSkillData(data);

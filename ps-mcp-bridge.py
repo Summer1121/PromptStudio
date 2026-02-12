@@ -90,9 +90,11 @@ def main():
                 handle_list_tools(msg_id)
             elif method == "tools/call":
                 handle_call_tool(msg_id, msg.get("params"))
+            elif method == "ping":
+                rpc_response(msg_id, {})
             else:
-                # 忽略其他请求 (如 ping)
-                pass
+                if msg_id is not None:
+                    rpc_error(msg_id, -32601, f"Method {method} not found")
                 
         except json.JSONDecodeError:
             pass

@@ -1,7 +1,11 @@
 from fastapi import APIRouter, HTTPException, Body, Request
 from sse_starlette.sse import EventSourceResponse
-from ..services.process_manager import mcp_manager
-from ..services.stdio_client import StdioRpcClient
+try:
+    from services.process_manager import mcp_manager
+    from services.stdio_client import StdioRpcClient
+except ImportError:
+    from ..services.process_manager import mcp_manager
+    from ..services.stdio_client import StdioRpcClient
 from typing import Dict, Any, List
 import asyncio
 import json
@@ -13,29 +17,47 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 clients: Dict[str, StdioRpcClient] = {}
+clients_lock = asyncio.Lock()
 
 async def get_client(server_name: str) -> StdioRpcClient:
-    if server_name not in clients:
+    async with clients_lock:
+        # 检查已有 client 是否有效
+        existing = clients.get(server_name)
         mcp_proc = mcp_manager.processes.get(server_name)
-        if not mcp_proc:
-            # 如果进程没在运行，尝试根据配置启动
+        
+        if existing:
+            # 检查 client 运行状态以及底层进程是否依然存活且管道未关闭
+            is_alive = (
+                existing._is_running and 
+                mcp_proc and 
+                mcp_proc.process and 
+                mcp_proc.process.returncode is None and
+                not mcp_proc.process.stdin.is_closing()
+            )
+            
+            if is_alive:
+                return existing
+            
+            # 否则清理掉旧的
+            logger.info(f"Client for {server_name} is stale or process died, recreating...")
+            await existing.stop()
+            if server_name in clients:
+                del clients[server_name]
+
+        if not mcp_proc or not mcp_proc.is_running or not mcp_proc.process or mcp_proc.process.returncode is not None:
+            # 如果进程没在运行或已退出，尝试根据配置启动
             config = mcp_manager.load_config()
             info = config.get("servers", {}).get(server_name)
             if info:
                 await mcp_manager.start_server(server_name, info)
                 mcp_proc = mcp_manager.processes.get(server_name)
             
-            if not mcp_proc:
+            if not mcp_proc or not mcp_proc.is_running:
                 raise HTTPException(status_code=404, detail=f"Server {server_name} not found or failed to start")
-        
-        # 如果已有 client 且运行正常，直接复用
-        existing = clients.get(server_name)
-        if existing and existing._is_running:
-            return existing
 
         client = StdioRpcClient(mcp_proc)
         await client.start()
-        # 初始化
+        # ... 初始化逻辑保持不变 ...
         try:
             await client.call("initialize", {
                 "protocolVersion": "2024-11-05",
@@ -44,10 +66,9 @@ async def get_client(server_name: str) -> StdioRpcClient:
             })
             await client.notify("notifications/initialized")
         except Exception as e:
-            # 初始化失败可能是因为已经初始化过了，或者其他原因
             pass
         clients[server_name] = client
-    return clients[server_name]
+        return clients[server_name]
 
 # --- Server State Management ---
 
@@ -59,8 +80,14 @@ async def get_server_state():
 @router.get("/servers")
 async def list_all_servers():
     config = mcp_manager.load_config()
+    server_configs = config.get("servers", {})
+    
+    # 合并配置中的和当前运行中的（防止配置写入延迟或丢失）
+    all_names = set(server_configs.keys()) | set(mcp_manager.processes.keys())
+    
     servers = []
-    for name, info in config.get("servers", {}).items():
+    for name in all_names:
+        info = server_configs.get(name, {})
         is_running = name in mcp_manager.processes and mcp_manager.processes[name].is_running
         servers.append({
             "name": name,
@@ -82,8 +109,41 @@ async def start_server(name: str):
 
 @router.post("/server/{name}/stop")
 async def stop_server(name: str):
-    await mcp_manager.stop_server(name)
-    return {"status": "stopped"}
+    try:
+        await mcp_manager.stop_server(name)
+        # 清理缓存的 client
+        async with clients_lock:
+            if name in clients:
+                await clients[name].stop()
+                del clients[name]
+        return {"status": "stopped"}
+    except Exception as e:
+        logger.error(f"Error stopping server {name}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/server/{name}")
+async def delete_server(name: str):
+    """
+    从配置中删除服务器（通常用于外部服务器）
+    """
+    try:
+        # 先停止进程
+        await mcp_manager.stop_server(name)
+        async with clients_lock:
+            if name in clients:
+                await clients[name].stop()
+                del clients[name]
+            
+        # 从配置中移除
+        config = mcp_manager.load_config()
+        if name in config.get("servers", {}):
+            del config["servers"][name]
+            mcp_manager._save_config(config)
+            
+        return {"status": "deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting server {name}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- REST API Endpoints (Gateway / Frontend) ---
 
@@ -93,9 +153,11 @@ async def list_tools():
     # 确保所有配置的服务都已启动
     await mcp_manager.start_all_configured()
     
-    logger.info(f"Checking tools for processes: {list(mcp_manager.processes.keys())}")
+    # 使用 list() 包装 keys 以避免 RuntimeError: dictionary changed size during iteration
+    server_names = list(mcp_manager.processes.keys())
+    logger.info(f"Checking tools for processes: {server_names}")
 
-    for server_name in mcp_manager.processes.keys():
+    for server_name in server_names:
         try:
             client = await get_client(server_name)
             result = await client.call("tools/list", timeout=5.0)
@@ -265,6 +327,7 @@ async def handle_messages(request: Request):
     if response:
         for q in sse_queues:
             await q.put(response)
+        return response
             
     return {"status": "accepted"}
 
@@ -291,6 +354,15 @@ async def create_skill(
 ):
     filename = f"{name}.py"
     filepath = SKILLS_DIR / filename
+    
+    # 如果服务已在运行，先停止并清理
+    if name in mcp_manager.processes:
+        await mcp_manager.stop_server(name)
+        async with clients_lock:
+            if name in clients:
+                await clients[name].stop()
+                del clients[name]
+        
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(code)
     

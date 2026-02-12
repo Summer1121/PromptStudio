@@ -19,7 +19,9 @@ export function isLlmConfigured(settings) {
 export async function invokeLlm({ llmSettings, systemContent, userContent, messages, tools = [] }, options = {}) {
     const type = llmSettings?.modelType || 'custom';
     const apiKey = llmSettings?.apiKey;
-    const modelName = llmSettings?.model || getDefaultModel(type);
+    let modelName = (llmSettings?.model?.trim()) || getDefaultModel(type);
+    
+    console.log(`[LLM] Using model: ${modelName}, type: ${type}`);
     
     let currentMessages = messages || [];
     if (!messages && (systemContent || userContent)) {
@@ -37,7 +39,7 @@ export async function invokeLlm({ llmSettings, systemContent, userContent, messa
 
         let response;
         if (type === 'gemini') {
-            response = await callGemini(apiKey, modelName, currentMessages, tools, options);
+            response = await callGemini(apiKey, modelName, currentMessages, tools, options, llmSettings);
         } else if (type === 'qwen') {
             response = await callQwen(apiKey, modelName, currentMessages, tools, options);
         } else {
@@ -93,6 +95,33 @@ function getDefaultModel(type) {
     return LLM_MODEL_CONFIG.custom.defaultModel;
 }
 
+// --- Helpers ---
+
+async function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 300000 } = options; // 延长至 5 分钟
+    
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const response = await fetch(resource, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (error) {
+        clearTimeout(id);
+        if (error.name === 'AbortError') {
+            throw new Error('模型生成耗时过长 (超过 5 分钟)，请检查网络或尝试切换更快的模型。');
+        }
+        if (error instanceof TypeError) {
+            throw new Error('网络请求失败 (Load Failed): 请检查 API 地址是否正确或是否存在跨域 (CORS) 限制。');
+        }
+        throw error;
+    }
+}
+
 // --- Adapters ---
 
 async function callOpenAICompatible(endpoint, apiKey, model, messages, tools, options) {
@@ -122,13 +151,14 @@ async function callOpenAICompatible(endpoint, apiKey, model, messages, tools, op
         }));
     }
 
-    const res = await fetch(endpoint, {
+    const res = await fetchWithTimeout(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify(body),
+        timeout: options.timeout
     });
 
     if (!res.ok) throw new Error(`OpenAI API Error: ${res.status}`);
@@ -141,7 +171,7 @@ async function callOpenAICompatible(endpoint, apiKey, model, messages, tools, op
     };
 }
 
-async function callGemini(apiKey, model, messages, tools, options) {
+async function callGemini(apiKey, model, messages, tools, options, llmSettings) {
     // 转换消息为 Gemini 格式
     // roles: user, model
     let contents = [];
@@ -200,16 +230,23 @@ async function callGemini(apiKey, model, messages, tools, options) {
         }];
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const res = await fetch(url, {
+    const baseUrl = llmSettings?.endpoint?.replace(/\/$/, '') || 'https://generativelanguage.googleapis.com';
+    const url = `${baseUrl}/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        timeout: options.timeout
     });
 
     if (!res.ok) {
         const err = await res.json();
-        throw new Error(`Gemini Error: ${err.error?.message || res.status}`);
+        console.error('[Gemini] API Error Response:', {
+            status: res.status,
+            statusText: res.statusText,
+            error: err
+        });
+        throw new Error(`Gemini Error: ${err.error?.message || JSON.stringify(err) || res.status}`);
     }
 
     const data = await res.json();

@@ -92,7 +92,6 @@ export const TemplatesSidebar = React.memo(({
                     <button className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center" title="通知中心"><Bell size={16} /></button>
                     <button onClick={() => setIsSettingsOpen(true)} className="p-1.5 rounded-lg transition-colors text-gray-400 hover:text-orange-600 hover:bg-orange-50 min-touch-target flex items-center justify-center" title={t('settings')}><Settings size={16} /></button>
               </div>
-          </div>
           <div className="flex flex-col gap-3">
             <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-orange-500 transition-colors" size={14} />
